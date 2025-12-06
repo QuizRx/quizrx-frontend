@@ -1,0 +1,133 @@
+steps:
+  # Dynamically fetch all environment variables from Secret Manager
+  - name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        # Create a single .env file for both build args and deployment
+        touch /workspace/.env
+
+        # Check for secrets in project
+        echo "🔍 Finding secrets in project $PROJECT_ID..."
+        all_secrets=$(gcloud secrets list --format="value(name)" --project=$PROJECT_ID || true)
+
+        if [ -z "$all_secrets" ]; then
+          echo "⚠️ No secrets found in project $PROJECT_ID"
+        else
+          # Count the number of secrets
+          secret_count=$(echo "$all_secrets" | wc -l)
+          echo "📋 Found $secret_count secrets:"
+          
+          # Fetch each secret and add only those that start with NEXT to the .env file
+          for secret_name in $all_secrets; do
+            value=$(gcloud secrets versions access latest --secret=$secret_name --project=$PROJECT_ID)
+            
+            # Only add secrets that start with NEXT
+            if [[ $secret_name == NEXT* ]]; then
+              echo "$secret_name=$value" >> /workspace/.env
+            fi
+          done
+        fi
+
+        # Note: PORT is automatically set by Cloud Run, do not add it here
+
+        # Count and show the variables (without revealing values)
+        var_count=$(cat /workspace/.env | wc -l)
+        echo "📋 Created .env file with $var_count variables:"
+        cat /workspace/.env | cut -d= -f1
+    id: GetEnvironmentVariables
+
+  # Build Docker image with the .env file
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        echo "🔨 Starting Docker build..."
+        echo "📋 The .env file will be copied into the image and Next.js will read it during build"
+
+        # Verify .env exists and has NEXT_PUBLIC variables
+        if [ -f /workspace/.env ]; then
+          next_public_count=$(grep -c "^NEXT_PUBLIC" /workspace/.env || echo "0")
+          echo "✅ .env file contains $next_public_count NEXT_PUBLIC variables"
+        else
+          echo "❌ ERROR: .env file not found!"
+          exit 1
+        fi
+
+        # Build Docker image (no build args needed - Next.js reads .env automatically)
+        docker build --no-cache \
+          -t "gcr.io/$PROJECT_ID/quizrx-platform-frontend:$COMMIT_SHA" .
+
+        echo "✅ Docker build complete"
+    id: Build
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "gcr.io/$PROJECT_ID/quizrx-platform-frontend:$COMMIT_SHA"
+    id: Push
+
+  # Deploy to Cloud Run with environment variables
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        echo "📦 Deploying to Cloud Run..."
+
+        # Build env vars string from .env file
+        env_vars=""
+        while IFS= read -r line || [ -n "$line" ]; do
+          # Skip empty lines or comments
+          if [ -z "$line" ] || [[ $line == \#* ]]; then
+            continue
+          fi
+          # Add to env_vars string
+          if [ -z "$env_vars" ]; then
+            env_vars="$line"
+          else
+            env_vars="$env_vars,$line"
+          fi
+        done < /workspace/.env
+
+        # Deploy to Cloud Run
+        echo "🚀 Deploying with environment variables..."
+        gcloud run deploy "quizrx-platform-frontend" \
+          --platform=managed \
+          --image="gcr.io/$PROJECT_ID/quizrx-platform-frontend:$COMMIT_SHA" \
+          --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha="$COMMIT_SHA",gcb-build-id="$BUILD_ID" \
+          --region="$_DEPLOY_REGION" \
+          --quiet \
+          --set-env-vars="$env_vars"
+
+        echo "✅ Deployment complete!"
+    id: Deploy
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - quizrx-platform-frontend
+      - "--region=$_DEPLOY_REGION"
+      - "--member=allUsers"
+      - "--role=roles/run.invoker"
+    id: AllowUnauthenticated
+
+images:
+  - "gcr.io/$PROJECT_ID/quizrx-platform-frontend:$COMMIT_SHA"
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _DEPLOY_REGION: us-central1
+
+tags:
+  - gcp-cloud-build-deploy-cloud-run
+  - gcp-cloud-build-deploy-cloud-run-managed
+  - quizrx-platform-frontend
