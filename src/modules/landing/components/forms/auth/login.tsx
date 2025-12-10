@@ -9,7 +9,7 @@ import {
   FormMessage,
 } from "@/core/components/ui/form";
 import { Input } from "@/core/components/ui/input";
-import { auth } from "@/core/configs/firebase";
+import { getFirebaseAuth } from "@/core/configs/firebase";
 import { toast } from "@/core/hooks/use-toast";
 import { cn } from "@/core/lib/utils";
 import {
@@ -112,7 +112,7 @@ export function LoginForm() {
     setIsGoogleLoading(true);
 
     const loginOperation = async () => {
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(getFirebaseAuth(), provider);
       const idToken = await result.user.getIdToken();
 
       // Use AuthProvider's signIn method

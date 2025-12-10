@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from "@/core/components/ui/form";
 import { Input } from "@/core/components/ui/input";
-import { auth } from "@/core/configs/firebase";
+import { getFirebaseAuth } from "@/core/configs/firebase";
 import { toast } from "@/core/hooks/use-toast";
 import { cn } from "@/core/lib/utils";
 import { setCookie } from "cookies-next";
@@ -88,7 +88,7 @@ export function SignupForm({
             description: "Account created successfully!",
           });
           const customToken = res.createUserWithEmailAndPassword;
-          signInWithCustomToken(auth, customToken)
+          signInWithCustomToken(getFirebaseAuth(), customToken)
             .then((cred) => cred.user.getIdToken())
             .then(async (idToken) => {
               setCookie("token", idToken);
@@ -122,7 +122,7 @@ export function SignupForm({
 
   const handleGoogleSignUp = () => {
     const provider = new GoogleAuthProvider();
-    signInWithPopup(auth, provider)
+    signInWithPopup(getFirebaseAuth(), provider)
       .then(async (result) => {
         toast({
           title: "Google Sign-in Successful",
