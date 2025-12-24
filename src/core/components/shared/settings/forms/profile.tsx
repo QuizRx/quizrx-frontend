@@ -134,6 +134,7 @@ const ProfileForm = () => {
         }
         // Use the storage instance from firebase.ts and uploadBytes with Blob (File)
         const path = `avatars/${user?.user_id || user?.email || "profile"}`;
+        if (!storage) throw new Error("Storage not initialized");
         const imgRef = storageRef(storage, path);
         await uploadBytes(imgRef, selectedFile); // upload as Blob/File
         photoURL = await getDownloadURL(imgRef);

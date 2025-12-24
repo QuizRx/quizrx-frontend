@@ -68,7 +68,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       // Force token refresh
-      const newToken = await getIdToken(getFirebaseAuth().currentUser, true);
+      const currentUser = getFirebaseAuth().currentUser;
+      if (!currentUser) throw new Error("No user logged in");
+      const newToken = await getIdToken(currentUser, true);
 
       if (newToken) {
         // Update cookie with new token
@@ -233,7 +235,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       // Firebase sign out if using Firebase
       if (getFirebaseAuth().currentUser) {
-        await firebaseSignOut(auth);
+        await firebaseSignOut(getFirebaseAuth());
       }
 
       await handleSignOut();

@@ -75,7 +75,7 @@ export function LoginForm() {
 
     const loginOperation = async () => {
       const userCredential = await signInWithEmailAndPassword(
-        auth,
+        getFirebaseAuth(),
         data.email,
         data.password
       );
