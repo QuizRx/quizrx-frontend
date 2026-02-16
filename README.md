@@ -1,90 +1,68 @@
 # QuizRX Frontend
 
-A modern, responsive web application for AI-powered medical education, built with Next.js and TypeScript.
+Next.js 15 medical education platform - AI-powered quizzes, Q&A, and PubMed citations for endocrinology.
 
-## 🚀 Overview
+**Version:** v11.3 | **Status:** Production Ready 🚀
 
-QuizRX Frontend is the user interface for the QuizRX platform, providing an intuitive experience for medical professionals and students to interact with AI-generated quizzes and educational content.
+## Features
 
-## 🛠️ Tech Stack
+- 🎓 **Quiz Interface** - Multiple choice questions with explanations
+- 💬 **Chat Q&A** - Real-time streaming medical Q&A
+- 📚 **PubMed Citations** - Display and fetch research citations
+- 🔘 **Get PubMed Sources Button** - Fetch citations for Pinecone responses (v11.3)
+- 🎭 **AI Avatar** - HeyGen streaming avatar for explanations
+- 📊 **Performance Tracking** - Quiz history and analytics
+- 💳 **Subscriptions** - Stripe payment integration
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Next.js | 15.x | React framework with SSR/SSG |
-| TypeScript | 5.x | Type-safe JavaScript |
-| React | 18.x | UI library |
-| GraphQL | - | API query language |
-| Firebase Auth | - | User authentication |
-| Tailwind CSS | 3.x | Utility-first styling |
-| pnpm | 10.x | Package manager |
+---
 
-## 📁 Project Structure
+## Quick Start
 
-```
-quizrx-frontend/
-├── src/
-│   ├── app/                 # Next.js App Router pages
-│   │   ├── (auth)/         # Authentication pages
-│   │   ├── (dashboard)/    # Dashboard pages
-│   │   └── layout.tsx      # Root layout
-│   ├── core/               # Core utilities
-│   │   ├── configs/        # Configuration files (Firebase, etc.)
-│   │   ├── providers/      # React context providers
-│   │   ├── hooks/          # Custom React hooks
-│   │   └── utils/          # Utility functions
-│   └── modules/            # Feature modules
-│       ├── quiz/           # Quiz components
-│       ├── chat/           # Chat components
-│       └── profile/        # User profile components
-├── public/                 # Static assets
-├── cypress/                # E2E tests
-├── package.json
-├── next.config.ts
-├── tailwind.config.ts
-└── tsconfig.json
+```bash
+# Install dependencies
+pnpm install
+
+# Setup environment
+cp .env.example .env.local
+# Edit .env.local with your API keys
+
+# Run development server
+pnpm dev
+# Server runs on http://localhost:3000
 ```
 
-## ⚙️ Prerequisites
+---
 
-- Node.js 18.x or higher
-- pnpm 10.x (install with `npm install -g pnpm`)
-- Git
+## Prerequisites
 
-## 🔧 Installation
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Node.js | v18.x+ | Runtime |
+| pnpm | v8.x+ | Package manager |
+| Docker | Latest | Containerization |
+| gcloud CLI | Latest | Cloud Run deployment |
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/QuizRx/quizrx-frontend.git
-   cd quizrx-frontend
-   ```
+```bash
+# Install pnpm globally
+npm install -g pnpm
 
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
+# Verify versions
+node --version   # v18.x+
+pnpm --version   # v8.x+
+```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Edit `.env.local` with your actual values (get from team lead).
+---
 
-4. **Start development server**
-   ```bash
-   pnpm dev
-   ```
+## Environment Variables
 
-5. **Open in browser**
-   ```
-   http://localhost:3000
-   ```
-
-## 📝 Environment Variables
-
-Create a `.env.local` file in the root directory:
+### Development (`.env.local`)
 
 ```env
-# Firebase Configuration (REQUIRED)
+# Backend API
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_GRAPHQL_URL=http://localhost:3001/graphql
+
+# Firebase Authentication
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
@@ -92,68 +70,352 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_COGNITIVE_API_URL=http://localhost:8081
+# Stripe (optional)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
 
-# Feature Flags (optional)
-NEXT_PUBLIC_ENABLE_AVATAR=false
-NEXT_PUBLIC_ENABLE_VOICE=false
+# HeyGen Avatar (optional)
+NEXT_PUBLIC_HEYGEN_API_KEY=your_heygen_key
 ```
 
-> ⚠️ **Never commit `.env.local` to version control!**
+### Production (`.env.production`)
 
-## 🧪 Available Scripts
+```env
+NEXT_PUBLIC_API_URL=https://quizrx-platform-backend-356295304767.us-central1.run.app
+NEXT_PUBLIC_GRAPHQL_URL=https://quizrx-platform-backend-356295304767.us-central1.run.app/graphql
+```
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Build for production |
-| `pnpm start` | Start production server |
-| `pnpm lint` | Run ESLint |
-| `pnpm lint:fix` | Fix ESLint errors |
-| `pnpm test` | Run unit tests |
-| `pnpm test:e2e` | Run Cypress E2E tests |
-| `pnpm type-check` | Run TypeScript type checking |
+---
 
-## 🏗️ Building for Production
+## Get PubMed Sources Button (v11.3)
+
+A button that allows users to fetch PubMed citations for responses that don't have them.
+
+### Behavior
+
+| Response Type | Data Source | Citations | Button |
+|---------------|-------------|-----------|--------|
+| Q&A | Pinecone | `[]` | ✅ Show |
+| Q&A | PubMed | `[...]` | ❌ Hide |
+| Quiz | Pinecone | `[]` | ✅ Show |
+| Quiz | PubMed | `[...]` | ❌ Hide |
+| Follow-up | Context | `[]` | ✅ Show |
+| Follow-up | PubMed | `[...]` | ❌ Hide |
+
+### Implementation
+
+**File:** `src/modules/chat/layouts/chat/chat.tsx`
+
+```tsx
+{(!message.citations || message.citations.length === 0) && (
+  <button
+    onClick={() => handleSubmit("give me sources for this")}
+    className="flex items-center gap-1 text-primary hover:text-primary/80 
+               transition-colors p-1.5 sm:p-2 border border-primary 
+               rounded-md text-xs sm:text-sm"
+    title="Get PubMed citations for this response"
+  >
+    <Search size={14} />
+    <span>Get PubMed Sources</span>
+  </button>
+)}
+```
+
+### ⚠️ Important: Two Render Functions
+
+The button must be in **BOTH** render functions:
+
+| Function | Line | Used When |
+|----------|------|-----------|
+| `renderAllMessages()` | ~269 | Fresh/new chats |
+| `renderReviewConceptContent()` | ~440 | Existing chats, Review mode |
+
+---
+
+## Project Structure
+
+```
+quizrx-frontend/
+├── src/
+│   ├── app/
+│   │   ├── (core)/                    # Protected routes (dashboard)
+│   │   ├── (landing)/                 # Public landing pages
+│   │   ├── api/                       # API routes
+│   │   ├── layout.tsx                 # Root layout
+│   │   ├── providers.tsx              # App providers
+│   │   └── globals.css                # Global styles
+│   │
+│   ├── modules/
+│   │   ├── chat/                      # 💬 Chat & Q&A module
+│   │   │   ├── layouts/
+│   │   │   │   └── chat/
+│   │   │   │       ├── chat.tsx       # ⭐ Main chat + PubMed button
+│   │   │   │       ├── quiz-accordion.tsx
+│   │   │   │       └── question-accoridion.tsx
+│   │   │   ├── store/
+│   │   │   │   └── chat-store.ts      # Zustand state
+│   │   │   ├── types/
+│   │   │   │   └── api/
+│   │   │   │       └── messages.ts    # Message types
+│   │   │   └── apollo/                # GraphQL queries
+│   │   │
+│   │   ├── avatars/                   # 🎭 HeyGen Avatar
+│   │   ├── concepts/                  # 📚 Medical concepts
+│   │   ├── graph/                     # 📊 Knowledge graphs
+│   │   ├── landing/                   # 🏠 Landing pages
+│   │   └── subscription/              # 💳 Stripe payments
+│   │
+│   └── components/                    # Shared UI components
+│
+├── .env.local                         # Development env
+├── .env.production                    # Production env
+├── Dockerfile
+├── package.json
+└── pnpm-lock.yaml
+```
+
+---
+
+## Development
+
+### Available Scripts
 
 ```bash
-# Build the application
+# Install dependencies
+pnpm install
+
+# Run development server (http://localhost:3000)
+pnpm dev
+
+# Build for production
 pnpm build
 
-# Start production server
+# Start production server locally
 pnpm start
+
+# Lint code
+pnpm lint
+
+# Type check
+pnpm type-check
 ```
 
-## 🐳 Docker
+### Run Full Stack Locally
 
 ```bash
-# Build Docker image
-docker build -t quizrx-frontend .
+# Terminal 1: Frontend
+cd quizrx-frontend
+pnpm dev
 
-# Run container
-docker run -p 3000:3000 quizrx-frontend
+# Terminal 2: Backend API (NestJS)
+cd quizrx-backend-api
+pnpm start:dev
+
+# Terminal 3: Cognitive Service (Python)
+cd quizrx-cognitive-service
+source QuizRx/bin/activate
+python main.py
 ```
 
-## 🔗 Related Services
+---
 
-| Service | Repository | Local URL |
-|---------|------------|-----------|
-| Backend API | [quizrx-backend-api](https://github.com/QuizRx/quizrx-backend-api) | http://localhost:3001 |
-| Cognitive Service | [quizrx-cognitive-service](https://github.com/QuizRx/quizrx-cognitive-service) | http://localhost:8081 |
-| Infrastructure | [quizrx-infra](https://github.com/QuizRx/quizrx-infra) | - |
+## Docker Deployment
 
-## 🤝 Contributing
+### Build & Run Locally
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+```bash
+# Build
+docker build -t quizrx-frontend:local .
 
-## 📄 License
+# Run
+docker run -p 3000:8080 quizrx-frontend:local
 
-This project is proprietary software. All rights reserved.
+# Access at http://localhost:3000
+```
 
-## 📞 Support
+### Deploy to Google Cloud Run
 
-- **Product Owner**: Dr. Ramy Alnahhal
-- **Application**: https://quizrx.ai/
-- **GitHub**: https://github.com/QuizRx
+**⚠️ CRITICAL: Deploy to `quizrx-platform-frontend`, NOT `quizrx-frontend`!**
+
+```bash
+# Build
+docker build --no-cache -t gcr.io/quizrx-prod/quizrx-frontend:v11.3 .
+
+# Push to GCR
+docker push gcr.io/quizrx-prod/quizrx-frontend:v11.3
+
+# Deploy to CORRECT service
+gcloud run deploy quizrx-platform-frontend \
+  --image=gcr.io/quizrx-prod/quizrx-frontend:v11.3 \
+  --region=us-central1 \
+  --project=quizrx-prod \
+  --allow-unauthenticated
+```
+
+### Verify Deployment
+
+```bash
+# Check deployed revision
+gcloud run services describe quizrx-platform-frontend \
+  --region=us-central1 \
+  --project=quizrx-prod \
+  --format="value(status.latestReadyRevisionName)"
+
+# Check deployed image
+gcloud run services describe quizrx-platform-frontend \
+  --region=us-central1 \
+  --project=quizrx-prod \
+  --format="value(spec.template.spec.containers[0].image)"
+
+# List all services
+gcloud run services list --region=us-central1 --project=quizrx-prod
+```
+
+### Production URL
+
+```
+https://quizrx-platform-frontend-356295304767.us-central1.run.app
+```
+
+---
+
+## Message Types
+
+```typescript
+enum MessageType {
+  FORM_TOPIC = "FORM_TOPIC",
+  QUIZ = "QUIZ",
+  ANSWER = "ANSWER",
+  QUERY = "QUERY",
+}
+
+enum SenderType {
+  USER = "USER",
+  AI = "AI",
+}
+```
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Framework | Next.js 15.2.4 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS 4.0 |
+| State | Zustand |
+| API | GraphQL + Apollo Client |
+| Auth | Firebase Auth |
+| Payments | Stripe |
+| UI | Radix UI, shadcn/ui |
+| Avatar | HeyGen Streaming Avatar |
+
+### Key Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `@apollo/client` | GraphQL client |
+| `@microsoft/fetch-event-source` | SSE streaming |
+| `@heygen/streaming-avatar` | AI avatar |
+| `@stripe/react-stripe-js` | Payments |
+| `@radix-ui/*` | UI primitives |
+| `zustand` | State management |
+
+---
+
+## Testing
+
+### Verify Button in Code
+
+```bash
+# Should return 4 lines (2 comments + 2 buttons)
+grep -n "Get PubMed Sources" src/modules/chat/layouts/chat/chat.tsx
+```
+
+### Browser Console Check
+
+```javascript
+// Should return true
+document.body.innerHTML.includes("Get PubMed Sources")
+```
+
+### Manual Test Flow
+
+1. **New Chat** → Type `what is DKA`
+2. **Wait for response** (Pinecone)
+3. **Button should show** ✅
+4. **Click button** → "give me sources for this"
+5. **Wait for response** (PubMed with citations)
+6. **Button should hide** ❌
+
+---
+
+## Troubleshooting
+
+### Button Not Appearing
+
+1. **Check both render functions:**
+   ```bash
+   grep -n "Get PubMed Sources" src/modules/chat/layouts/chat/chat.tsx
+   # Should return 4 lines
+   ```
+
+2. **Verify correct service deployed:**
+   ```bash
+   # You should access:
+   https://quizrx-platform-frontend-356295304767.us-central1.run.app
+   
+   # NOT:
+   https://quizrx-frontend-356295304767.us-central1.run.app
+   ```
+
+3. **Clear browser cache:** `Ctrl + Shift + R` or use Incognito
+
+4. **Force new build:**
+   ```bash
+   docker rmi gcr.io/quizrx-prod/quizrx-frontend:v11.3
+   docker build --no-cache -t gcr.io/quizrx-prod/quizrx-frontend:v11.3 .
+   ```
+
+### Wrong Service Deployed
+
+There are TWO frontend services:
+- `quizrx-frontend` ❌ (old/unused)
+- `quizrx-platform-frontend` ✅ (production)
+
+Always deploy to `quizrx-platform-frontend`!
+
+```bash
+gcloud run services list --region=us-central1 --project=quizrx-prod
+```
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **v11.3** | 2026-02-15 | Added "Get PubMed Sources" button to both render functions |
+| **v11.2** | 2026-02-12 | Pinecone metadata display fix |
+| **v11.1** | 2026-01-27 | Streaming fixes, follow-up routing |
+| **v11.0** | 2026-01-22 | Initial v11 release |
+
+---
+
+## Related Services
+
+| Service | Tech | Cloud Run Service Name | Purpose |
+|---------|------|------------------------|---------|
+| Frontend | Next.js 15 | `quizrx-platform-frontend` | Web UI |
+| Backend | NestJS | `quizrx-platform-backend` | GraphQL API, MongoDB |
+| Cognitive | Python/FastAPI | `quizrx-cognitive-service` | AI agents, Pinecone |
+
+---
+
+## License
+
+Proprietary - QuizRx
+
+---
+
+*Last Updated: February 15, 2026 (v11.3) - Production Ready 🚀*

@@ -10,6 +10,7 @@ export type Message = BaseEntityProps & {
   citations?: Citation[];
   quizId?: string;
   agentEvents?: AgentEvent[];
+  dataSource?: "pinecone" | "pubmed" | "context";  // Data source for "Get PubMed Sources" button
 };
 
 export type Citation = {

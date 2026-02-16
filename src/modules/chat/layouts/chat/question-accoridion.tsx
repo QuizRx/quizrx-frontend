@@ -6,7 +6,7 @@ import { Label } from "@/core/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/core/components/ui/radio-group";
 import { useMutation } from "@apollo/client";
 import { QuestionMarkIcon } from "@radix-ui/react-icons";
-import { BookMarked, Clock, Eye, Folder } from "lucide-react";
+import { BookMarked, Clock, Eye, Folder, Search } from "lucide-react";
 import { useEffect } from "react";
 import { UPDATE_QUESTION_MUTATION } from "../../apollo/mutation/question";
 import {
@@ -25,10 +25,12 @@ export default function QuestionAccordion({
   questions,
   totalTime = 90,
   citations,
+  dataSource,
 }: {
   questions: Question[];
   totalTime?: number;
   citations?: Citation[];
+  dataSource?: string;  // "pinecone", "pubmed", or "context"
 }) {
   const [updateQuestion] = useMutation(UPDATE_QUESTION_MUTATION);
   const { handleSubmit, messages } = useChat(); // Added messages here
@@ -404,6 +406,17 @@ export default function QuestionAccordion({
             >
               <Eye /> {showCitations ? "Hide" : "See"} Citations
             </Button>{" "}
+            {/* Get PubMed Sources button - only show when no citations (Pinecone response) */}
+            {(!citations || citations.length === 0) && (
+              <Button
+                variant="outline"
+                onClick={() => handleSubmit("give me sources for this")}
+                className="text-xs sm:text-sm text-primary"
+              >
+                <Search size={16} />
+                <span className="ml-1">Get PubMed Sources</span>
+              </Button>
+            )}
             {selectedAnswer && isAnswered && (
               <Button
                 variant="outline"

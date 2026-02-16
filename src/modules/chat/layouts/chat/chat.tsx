@@ -9,6 +9,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   MessageSquare,
+  Search,
 } from "lucide-react";
 import { useChat } from "../../store/chat-store";
 import { useSplitView } from "../../store/split-view-store";
@@ -27,7 +28,7 @@ import { StreamedProcess } from "./streamed-process";
 import { Streaming } from "./streaming";
 
 export const ChatLayout = () => {
-  const { messages, handleMessageAction, isLoading, lastStreamingMessageId } =
+  const { messages, handleMessageAction, isLoading, lastStreamingMessageId, handleSubmit } =
     useChat();
 
   const { isReviewMode, toggleReviewMode } = useSplitView();
@@ -233,11 +234,13 @@ export const ChatLayout = () => {
                               .filter(Boolean)}
                             quizId={quizId}
                             fetchedQuiz={fetchedQuiz}
+                            dataSource={message.dataSource}
                           />
                         ) : (
                           <QuestionAccordion
                             citations={message.citations}
                             questions={message.questions}
+                            dataSource={message.dataSource}
                           />
                         )}
                       </div>
@@ -263,6 +266,17 @@ export const ChatLayout = () => {
                 {message.messageType === MessageType.ANSWER && (
                   <div className="flex items-center flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
                     {" "}
+                    {/* Get PubMed Sources button - only show when response has no citations (Pinecone response) */}
+                    {(!message.citations || message.citations.length === 0) && (
+                      <button
+                        className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors p-1.5 sm:p-2 border border-primary rounded-md text-xs sm:text-sm"
+                        onClick={() => handleSubmit("give me sources for this")}
+                        title="Get PubMed citations for this response"
+                      >
+                        <Search size={14} className="sm:w-4 sm:h-4" />
+                        <span>Get PubMed Sources</span>
+                      </button>
+                    )}
                     <button
                       className="text-muted-foreground hover:text-foreground transition-colors p-1.5 sm:p-2"
                       onClick={() =>
@@ -340,6 +354,7 @@ export const ChatLayout = () => {
                   questions={quizMessages
                     .map((q: any) => q.questions?.[0])
                     .filter(Boolean)}
+                  dataSource={message.dataSource}
                 />
               ) : (
                 <QuestionAccordion
@@ -349,6 +364,7 @@ export const ChatLayout = () => {
                       ? message.questions
                       : [message.questions]
                   }
+                  dataSource={message.dataSource}
                 />
               ))}
           </div>
@@ -421,6 +437,17 @@ export const ChatLayout = () => {
                     {/* Message interaction buttons */}
                     <div className="flex items-center flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
                       {" "}
+                      {/* Get PubMed Sources button - only show when response has no citations (Pinecone response) */}
+                      {(!message.citations || message.citations.length === 0) && (
+                        <button
+                          className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors p-1.5 sm:p-2 border border-primary rounded-md text-xs sm:text-sm"
+                          onClick={() => handleSubmit("give me sources for this")}
+                          title="Get PubMed citations for this response"
+                        >
+                          <Search size={14} className="sm:w-4 sm:h-4" />
+                          <span>Get PubMed Sources</span>
+                        </button>
+                      )}
                       <button
                         className="text-muted-foreground hover:text-foreground transition-colors p-1.5 sm:p-2"
                         onClick={() =>
