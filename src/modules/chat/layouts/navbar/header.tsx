@@ -2,7 +2,7 @@
 import NavBreadCrumbs from "@/core/components/shared/nav/navigation-bread-crumbs";
 import { SidebarTrigger } from "@/core/components/ui/sidebar";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
-import { Map } from "lucide-react";
+import { Link, Map } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { NotificationIndicator } from "@/core/layouts/dashboard/nav/notification";
 import { NavUser } from "@/core/layouts/dashboard/nav/user";
@@ -10,9 +10,11 @@ import { useAuth } from "@/core/providers/auth";
 import { Button } from "@/core/components/ui/button";
 
 const ChatNavHeader = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { toggleChatSidebar } = useChatSidebar();
   const pathname = usePathname();
+
+  // Check if user is admin
 
   return (
     <header className="flex flex-row h-14 w-full bg-white/10  max-md:px-2 pr-6 items-center justify-between border-b  border-zinc-200 backdrop-blur-2xl sticky top-0 z-49 ">

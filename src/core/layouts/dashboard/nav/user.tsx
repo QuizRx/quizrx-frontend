@@ -1,7 +1,7 @@
 "use client";
 
 import { deleteCookie } from "cookies-next";
-import { BadgeCheck, CreditCard, LogOut, Sparkles } from "lucide-react";
+import { BadgeCheck, CreditCard, LogOut, StickyNote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import {
@@ -53,6 +53,15 @@ export function NavUser({
       icon: CreditCard,
       url: "/dashboard/settings/manage-plan",
     },
+    ...(user.email === "test@gmail.com"
+      ? [
+          {
+            label: "CMS Dashboard",
+            icon: StickyNote,
+            url: "/cms-dashboard",
+          },
+        ]
+      : []),
     {
       label: "Log out",
       icon: LogOut,
