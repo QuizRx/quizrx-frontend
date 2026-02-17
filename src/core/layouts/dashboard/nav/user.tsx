@@ -53,7 +53,7 @@ export function NavUser({
       icon: CreditCard,
       url: "/dashboard/settings/manage-plan",
     },
-    ...(user.email === "test@gmail.com"
+    ...(user.email === "admin@quizrx.ai"
       ? [
           {
             label: "CMS Dashboard",
