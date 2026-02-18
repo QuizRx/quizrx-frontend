@@ -15,7 +15,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { auth } from "../configs/firebase";
+import { getFirebaseAuth } from "../configs/firebase";
 import { toast } from "../hooks/use-toast";
 import { getTokenInfo } from "../middleware/decode-jwt";
 import { DecodedJwtTokenType } from "../types/api/auth";
@@ -62,13 +62,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // Function to refresh the Firebase token
   const refreshToken = async (): Promise<string | null> => {
     try {
-      if (!auth.currentUser) {
+      if (!getFirebaseAuth().currentUser) {
         console.log("No current user to refresh token");
         return null;
       }
 
       // Force token refresh
-      const newToken = await getIdToken(auth.currentUser, true);
+      const currentUser = getFirebaseAuth().currentUser;
+      if (!currentUser) throw new Error("No user logged in");
+      const newToken = await getIdToken(currentUser, true);
 
       if (newToken) {
         // Update cookie with new token
@@ -232,8 +234,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Firebase sign out if using Firebase
-      if (auth.currentUser) {
-        await firebaseSignOut(auth);
+      if (getFirebaseAuth().currentUser) {
+        await firebaseSignOut(getFirebaseAuth());
       }
 
       await handleSignOut();
@@ -320,7 +322,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     // Set up Firebase auth state listener
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (firebaseUser) => {
       // Only handle auth state changes after initial setup is complete
       if (isInitializedRef.current) {
         handleAuthStateChange(firebaseUser);

@@ -273,7 +273,7 @@ export const Citations = ({ citations }: { citations: CitationType[] }) => {
       <div className="space-y-1">
         {citations.map((citation, index) => (
           <Citation
-            key={`citation-${citation.pmid || index}`}
+            key={`citation-${citation.pmid || "item"}-${index}`}
             citation={citation}
             index={index}
           />

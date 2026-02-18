@@ -17,6 +17,7 @@ import {
   BarChart,
   FileText,
   Timer,
+  Search,
 } from "lucide-react";
 import { useEffect } from "react";
 import { UPDATE_QUESTION_MUTATION } from "../../apollo/mutation/question";
@@ -45,6 +46,7 @@ export default function QuizAccordion({
   index,
   quizId,
   fetchedQuiz,
+  dataSource,
 }: {
   questions: any;
   totalTime?: number;
@@ -52,6 +54,7 @@ export default function QuizAccordion({
   index?: number;
   quizId?: string;
   fetchedQuiz?: Quiz;
+  dataSource?: string;  // "pinecone", "pubmed", or "context"
 }) {
   const [updateQuestion] = useMutation(UPDATE_QUESTION_MUTATION);
   const [submitQuiz] = useMutation(UPDATE_QUIZ_MUTATION);
@@ -561,6 +564,17 @@ export default function QuizAccordion({
               >
                 <Eye size={16} /> {showCitations ? "Hide" : "See"} Citations
               </Button>
+              {/* Get PubMed Sources button - only show when no citations (Pinecone response) */}
+              {(!citations || citations.length === 0) && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleSubmit("give me sources for this")}
+                  className="text-xs sm:text-sm text-primary"
+                >
+                  <Search size={16} />
+                  <span className="ml-1">Get PubMed Sources</span>
+                </Button>
+              )}
               {selectedAnswer && (
                 <Button
                   variant="outline"

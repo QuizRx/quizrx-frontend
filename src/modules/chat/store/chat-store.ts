@@ -1057,21 +1057,24 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
 );
 
 export const useChat = () => {
-  const { token } = useAuth();
+  const { token, refreshToken } = useAuth();  // ADD refreshToken
   const store = useChatStore();
 
-  // Wrap handleSubmit to include auth token
+  // Wrap handleSubmit to include auth token - ALWAYS GET FRESH TOKEN
   const handleSubmitWithAuth = async (message: string) => {
     if (!token) {
       console.error("No auth token available");
       return;
     }
 
+    // Get fresh token before API call to prevent expiry errors
+    const freshToken = await refreshToken() || token;
+    
     const store = useChatStore.getState();
-    return store.handleSubmit(message, token);
+    return store.handleSubmit(message, freshToken);
   };
 
-  // Wrap createThread to include auth token
+  // Wrap createThread to include auth token - ALWAYS GET FRESH TOKEN
   const createThreadWithAuth = async (
     initialMessage: string,
     title?: string,
@@ -1082,9 +1085,14 @@ export const useChat = () => {
       return;
     }
 
+    // Get fresh token before API call
+    const freshToken = await refreshToken() || token;
+
     const store = useChatStore.getState();
-    return store.createThread(initialMessage, title, description, token);
+    return store.createThread(initialMessage, title, description, freshToken);
   };
+
+  // ALSO UPDATE startFormTopic
   const startFormTopic = (
     topics: {
       topicId: string;
@@ -1097,8 +1105,13 @@ export const useChat = () => {
       console.error("No auth token available");
       return;
     }
-    store.startFormTopicStreaming(topics, token, onThreadReady);
+    
+    // Get fresh token - but since this is sync, we need async wrapper
+    refreshToken().then((freshToken) => {
+      store.startFormTopicStreaming(topics, freshToken || token, onThreadReady);
+    });
   };
+
   return {
     ...store,
     handleSubmit: handleSubmitWithAuth,

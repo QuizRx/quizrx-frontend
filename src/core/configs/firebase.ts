@@ -1,5 +1,4 @@
 "use client";
-
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import {
   getAuth,
@@ -12,90 +11,58 @@ import { getStorage, FirebaseStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
 };
 
-// Lazy initialization variables
-let _app: FirebaseApp | undefined;
-let _auth: Auth | undefined;
-let _functions: Functions | undefined;
-let _storage: FirebaseStorage | undefined;
-let _isInitialized = false;
+// Initialize Firebase app immediately (only in browser)
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let functions: Functions | null = null;
+let storage: FirebaseStorage | null = null;
 
-// Initialize Firebase only in browser
-function initializeFirebase() {
-  if (_isInitialized || typeof window === "undefined") {
-    return;
+if (typeof window !== "undefined" && firebaseConfig.apiKey) {
+  try {
+    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    functions = getFunctions(app);
+    storage = getStorage(app);
+    
+    // Set auth persistence
+    setPersistence(auth, browserLocalPersistence).catch(console.error);
+    
+    console.log("✅ Firebase initialized successfully");
+  } catch (error) {
+    console.error("❌ Firebase initialization error:", error);
   }
-
-  _app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  _auth = getAuth(_app);
-  _functions = getFunctions(_app);
-  _storage = getStorage(_app);
-
-  // Set auth persistence
-  setPersistence(_auth, browserLocalPersistence).catch((err) => {
-    console.error("Error setting auth persistence:", err);
-  });
-
-  _isInitialized = true;
+} else if (typeof window !== "undefined") {
+  console.error("❌ Firebase API key missing! Check .env.local");
 }
 
-// Getter functions that initialize on first access
+// Getter functions
 export function getFirebaseApp(): FirebaseApp {
-  if (!_app) {
-    initializeFirebase();
-  }
-  return _app!;
+  if (!app) throw new Error("Firebase app not initialized");
+  return app;
 }
 
 export function getFirebaseAuth(): Auth {
-  if (!_auth) {
-    initializeFirebase();
-  }
-  return _auth!;
+  if (!auth) throw new Error("Firebase auth not initialized");
+  return auth;
 }
 
 export function getFirebaseFunctions(): Functions {
-  if (!_functions) {
-    initializeFirebase();
-  }
-  return _functions!;
+  if (!functions) throw new Error("Firebase functions not initialized");
+  return functions;
 }
 
 export function getFirebaseStorage(): FirebaseStorage {
-  if (!_storage) {
-    initializeFirebase();
-  }
-  return _storage!;
+  if (!storage) throw new Error("Firebase storage not initialized");
+  return storage;
 }
 
-// Legacy exports for backward compatibility
-export const auth = new Proxy({} as Auth, {
-  get(target, prop) {
-    return getFirebaseAuth()[prop as keyof Auth];
-  },
-});
-
-export const functions = new Proxy({} as Functions, {
-  get(target, prop) {
-    return getFirebaseFunctions()[prop as keyof Functions];
-  },
-});
-
-export const storage = new Proxy({} as FirebaseStorage, {
-  get(target, prop) {
-    return getFirebaseStorage()[prop as keyof FirebaseStorage];
-  },
-});
-
-export const app = new Proxy({} as FirebaseApp, {
-  get(target, prop) {
-    return getFirebaseApp()[prop as keyof FirebaseApp];
-  },
-});
+// Export instances directly
+export { app, auth, functions, storage };
