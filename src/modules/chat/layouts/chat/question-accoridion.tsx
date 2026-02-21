@@ -407,7 +407,7 @@ export default function QuestionAccordion({
               <Eye /> {showCitations ? "Hide" : "See"} Citations
             </Button>{" "}
             {/* Get PubMed Sources button - only show when no citations (Pinecone response) */}
-            {(!citations || citations.length === 0) && (
+            {(!citations || citations.length === 0) && dataSource !== 'pubmed' && (
               <Button
                 variant="outline"
                 onClick={() => handleSubmit("give me sources for this")}

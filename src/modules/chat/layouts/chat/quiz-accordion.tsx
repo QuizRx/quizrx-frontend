@@ -565,7 +565,7 @@ export default function QuizAccordion({
                 <Eye size={16} /> {showCitations ? "Hide" : "See"} Citations
               </Button>
               {/* Get PubMed Sources button - only show when no citations (Pinecone response) */}
-              {(!citations || citations.length === 0) && (
+              {(!citations || citations.length === 0) && dataSource !== 'pubmed' && (
                 <Button
                   variant="outline"
                   onClick={() => handleSubmit("give me sources for this")}

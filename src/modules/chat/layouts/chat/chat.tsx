@@ -267,7 +267,7 @@ export const ChatLayout = () => {
                   <div className="flex items-center flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
                     {" "}
                     {/* Get PubMed Sources button - only show when response has no citations (Pinecone response) */}
-                    {(!message.citations || message.citations.length === 0) && (
+                    {(!message.citations || message.citations.length === 0) && message.dataSource !== 'pubmed' && (
                       <button
                         className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors p-1.5 sm:p-2 border border-primary rounded-md text-xs sm:text-sm"
                         onClick={() => handleSubmit("give me sources for this")}
@@ -438,7 +438,7 @@ export const ChatLayout = () => {
                     <div className="flex items-center flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
                       {" "}
                       {/* Get PubMed Sources button - only show when response has no citations (Pinecone response) */}
-                      {(!message.citations || message.citations.length === 0) && (
+                      {(!message.citations || message.citations.length === 0) && message.dataSource !== 'pubmed' && (
                         <button
                           className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors p-1.5 sm:p-2 border border-primary rounded-md text-xs sm:text-sm"
                           onClick={() => handleSubmit("give me sources for this")}
