@@ -119,7 +119,7 @@ export const WelcomeHeader = () => {
       y: 0,
       transition: {
         duration: 0.6,
-        ease: "easeOut",
+        ease: [0.17, 0.67, 0.83, 0.67] as const,
       },
     },
   };
@@ -132,7 +132,7 @@ export const WelcomeHeader = () => {
       y: 0,
       transition: {
         duration: 0.5,
-        ease: "easeOut",
+        ease: [0.17, 0.67, 0.83, 0.67] as const,
       },
     },
     hover: {

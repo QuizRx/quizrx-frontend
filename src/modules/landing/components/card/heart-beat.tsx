@@ -13,7 +13,7 @@ const HeartBeatCard = () => {
       opacity: 1,
       transition: {
         duration: 2,
-        ease: "easeInOut",
+        ease: [0.42, 0, 0.58, 1] as const,
         repeat: Infinity,
         repeatDelay: 0.1,
       },

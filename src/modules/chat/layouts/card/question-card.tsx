@@ -21,14 +21,14 @@ export default function QuestionCard({
       y: 0,
       transition: {
         duration: 0.5,
-        ease: "easeOut",
+        ease: [0.17, 0.67, 0.83, 0.67] as const,
       },
     },
     hover: {
       y: -5,
       transition: {
         duration: 0.2,
-        ease: "easeInOut",
+        ease: [0.42, 0, 0.58, 1] as const,
       },
     },
   };
@@ -38,7 +38,7 @@ export default function QuestionCard({
       scale: 1.05,
       transition: {
         duration: 0.3,
-        ease: "easeOut",
+        ease: [0.17, 0.67, 0.83, 0.67] as const,
       },
     },
   };

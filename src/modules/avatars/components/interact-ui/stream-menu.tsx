@@ -110,7 +110,7 @@ export default function StreamMenu() {
                           transition={{
                             duration: 2.2,
                             repeat: Infinity,
-                            ease: "easeInOut",
+                            ease: [0.42, 0, 0.58, 1] as const,
                             delay: 0.1,
                           }}
                         />
@@ -136,7 +136,7 @@ export default function StreamMenu() {
                           transition={{
                             duration: 2,
                             repeat: Infinity,
-                            ease: "easeInOut",
+                            ease: [0.42, 0, 0.58, 1] as const,
                           }}
                         />
                       </svg>
@@ -161,7 +161,7 @@ export default function StreamMenu() {
                           transition={{
                             duration: 1.8,
                             repeat: Infinity,
-                            ease: "easeInOut",
+                            ease: [0.42, 0, 0.58, 1] as const,
                             delay: 0.2,
                           }}
                         />

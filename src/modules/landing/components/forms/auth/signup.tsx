@@ -180,7 +180,7 @@ export function SignupForm({
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: [0.17, 0.67, 0.83, 0.67] as const }}
       className={cn("flex flex-col gap-6")}
     >
       <Form {...form}>
@@ -195,7 +195,7 @@ export function SignupForm({
                 className="grid gap-2 z-10 flex-1"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
+                transition={{ duration: 0.4, ease: [0.17, 0.67, 0.83, 0.67] as const }}
               >
                 <FormField
                   control={form.control}
@@ -226,7 +226,7 @@ export function SignupForm({
             className="grid gap-2 z-10"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.4, ease: [0.17, 0.67, 0.83, 0.67] as const }}
           >
             <FormField
               control={form.control}
@@ -254,7 +254,7 @@ export function SignupForm({
             className="grid gap-2"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.4, ease: [0.17, 0.67, 0.83, 0.67] as const }}
           >
             <FormField
               control={form.control}
@@ -291,7 +291,7 @@ export function SignupForm({
               <motion.pre
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
+                transition={{ duration: 0.5, ease: [0.17, 0.67, 0.83, 0.67] as const }}
                 className="bg-primary/10 text-primary w-full flex flex-col gap-2 rounded-sm p-4 text-xs"
               >
                 Make sure your password meets the following:

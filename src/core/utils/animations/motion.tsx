@@ -43,8 +43,8 @@ const zoomUpAnimation = {
   show: {
     opacity: 1,
     scale: 1,
-    transition: { type: "spring", stiffness: 100 },
+    transition: { type: "spring" as const, stiffness: 100 as const },
   },
-};
+} as const;
 
 export { zoomInAnimation, staggerUpAnimation, zoomUpAnimation };
