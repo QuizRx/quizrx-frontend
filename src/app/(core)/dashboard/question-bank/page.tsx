@@ -19,6 +19,10 @@ import { GENERATE_QUIZ,GENERATE_QUIZ_FROM_QUESTION_BANKS } from "@/modules/chat/
 import { useRouter } from "next/navigation";
 import { FIND_ALL_TOPICS_QUERY } from "@/modules/chat/apollo/query/topics";
 import { GENERATE_MOCK_EXAM } from "@/modules/chat/apollo/mutation/mockExam";
+import {
+  RATE_LIMIT_MESSAGE,
+  isRateLimitError,
+} from "@/core/utils/rate-limit";
 
 interface QuizRowSelection {
   [key: number]: boolean;
@@ -80,6 +84,29 @@ export default function Page() {
   const [selectedQuestionBanks, setSelectedQuestionBanks] = useState<
     QuestionBank[]
   >([]);
+
+  const executeWithRateLimitRetry = async <T,>(
+    operation: () => Promise<T>,
+    retryCount = 0
+  ): Promise<T> => {
+    const MAX_RETRIES = 1;
+    const RETRY_DELAY_MS = 2500;
+
+    try {
+      return await operation();
+    } catch (error) {
+      if (isRateLimitError(error) && retryCount < MAX_RETRIES) {
+        toast({
+          title: "Please slow down",
+          description: RATE_LIMIT_MESSAGE,
+        });
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        return executeWithRateLimitRetry(operation, retryCount + 1);
+      }
+      throw error;
+    }
+  };
+
   const createForm = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -128,50 +155,65 @@ export default function Page() {
     }) || [];
 
   const handleCreateQuiz = async (values: z.infer<typeof formSchema>) => {
-    const isSelection = Object.entries(quizRowSelection).length > 0;
     try {
-      if (quizType === "automated") {
-        const thread = await generateQuiz({
-          variables: { title: isSelection ? values.title : values.title },
-        });
-
-        Object.entries(quizRowSelection).length > 0;
+      switch (quizType) {
+        case "automated": {
+        const thread = await executeWithRateLimitRetry(() =>
+          generateQuiz({
+              variables: { title: values.title },
+          })
+        );
 
         if (thread?.data) {
           fetchAvailableThreads();
           loadThread(thread.data.generateQuiz._id);
           router.push(`/dashboard?thread=${thread.data.generateQuiz._id}`);
         }
-      }
+            break;
+          }
 
-      if (quizType === "selected") {
-        const questionBankIds = selectedQuestionBanks.map(
-          (questionBank) => questionBank._id
+        case "selected": {
+          const questionBankIds = selectedQuestionBanks.map(
+            (questionBank) => questionBank._id
+          );
+        const thread = await executeWithRateLimitRetry(() =>
+          generateQuizFromQuestionBanks({
+            variables: {
+              title: values.title,
+              questionBankIds,
+            },
+          })
         );
-        const thread = await generateQuizFromQuestionBanks({
-          variables: {
-            title: values.title,
-            questionBankIds,
-          },
-        });
 
         if (thread?.data) {
           fetchAvailableThreads();
           loadThread(thread.data.generateQuizFromQuestionBanks._id);
           router.push(`/dashboard?thread=${thread.data.generateQuizFromQuestionBanks._id}`);
         }
+            break;
+          }
+
+        case "mock": {
+          await executeWithRateLimitRetry(() =>
+            generateMockExam({
+              variables: { title: values.title },
+            })
+          );
+
+          router.push(`/dashboard/mock-exams`);
+          break;
+        }
       }
-
-      if (quizType === "mock") {
-         await generateMockExam({
-          variables: { title: values.title },
-        });
-
-        router.push(`/dashboard/mock-exams`);
-      }
-
     } catch (error) {
-      console.log(error);
+      if (isRateLimitError(error)) {
+        return;
+      }
+
+      toast({
+        title: "Failed to generate",
+        description: "Unable to generate right now. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 

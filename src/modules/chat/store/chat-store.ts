@@ -5,6 +5,11 @@ import { devtools } from "zustand/middleware";
 import { SEND_MESSAGE_MUTATION } from "../apollo/mutation/chat";
 import { CREATE_THREAD_MUTATION } from "../apollo/mutation/thread";
 import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { toast } from "@/core/hooks/use-toast";
+import {
+  RATE_LIMIT_MESSAGE,
+  isRateLimitError,
+} from "@/core/utils/rate-limit";
 import {
   GET_USER_THREAD_MESSAGES_QUERY,
   GET_USER_THREADS_QUERY,
@@ -115,6 +120,30 @@ const getApolloClient = () => {
   );
 };
 
+const MAX_RATE_LIMIT_RETRIES = 2;
+const RATE_LIMIT_RETRY_DELAY_MS = 3000;
+const RATE_LIMIT_TOAST_COOLDOWN_MS = 8000;
+let lastRateLimitToastAt = 0;
+
+const shouldRetryRateLimit = (error: unknown, retryCount: number) =>
+  isRateLimitError(error) && retryCount < MAX_RATE_LIMIT_RETRIES;
+
+const nextRateLimitRetryDelay = (retryCount: number) =>
+  RATE_LIMIT_RETRY_DELAY_MS * retryCount;
+
+const notifyRateLimit = () => {
+  const now = Date.now();
+  if (now - lastRateLimitToastAt < RATE_LIMIT_TOAST_COOLDOWN_MS) {
+    return;
+  }
+
+  lastRateLimitToastAt = now;
+  toast({
+    title: "Please slow down",
+    description: RATE_LIMIT_MESSAGE,
+  });
+};
+
 // Create the store
 export const useChatStore = create<ChatState & ChatActions & {}>()(
   devtools((set, get) => {
@@ -177,6 +206,7 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
     ) {
       const baseApiUrl = process.env.NEXT_PUBLIC_API_URL!;
       const controller = new AbortController();
+      let rateLimitRetryCount = 0;
 
       // keep your batching
       let eventBatch: AgentEvent[] = [];
@@ -209,10 +239,16 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
 
         openWhenHidden: true, // optional: keep streaming if tab hidden
         async onopen(res) {
+          if (res.status === 429) {
+            notifyRateLimit();
+            throw new Error("RATE_LIMIT_429");
+          }
+
           if (
             res.ok &&
             res.headers.get("content-type")?.includes("text/event-stream")
           ) {
+            rateLimitRetryCount = 0;
             return;
           }
           throw new Error(
@@ -223,6 +259,13 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
         onmessage(msg) {
           try {
             const parsed = JSON.parse(msg.data) as AgentEvent;
+
+            if (
+              parsed.event === "error" &&
+              isRateLimitError((parsed as { error?: string }).error)
+            ) {
+              notifyRateLimit();
+            }
 
             if (isEndEvent(parsed)) {
               if (batchTimer) {
@@ -271,6 +314,13 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
 
         onerror(err) {
           console.error("SSE error:", err);
+
+          if (shouldRetryRateLimit(err, rateLimitRetryCount)) {
+            rateLimitRetryCount += 1;
+            notifyRateLimit();
+            return nextRateLimitRetryDelay(rateLimitRetryCount);
+          }
+
           if (batchTimer) {
             clearTimeout(batchTimer);
             processBatch();
@@ -896,6 +946,7 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
       }) => {
         const baseApiUrl = process.env.NEXT_PUBLIC_API_URL!;
         const controller = new AbortController();
+        let rateLimitRetryCount = 0;
 
         // batching (global — OK for lightweight UI hints)
         let eventBatch: AgentEvent[] = [];
@@ -925,11 +976,17 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
           openWhenHidden: true,
 
           async onopen(res) {
+            if (res.status === 429) {
+              notifyRateLimit();
+              throw new Error("RATE_LIMIT_429");
+            }
+
             if (
               res.ok &&
               res.headers.get("content-type")?.includes("text/event-stream")
             ) {
               // Prepare UI
+              rateLimitRetryCount = 0;
               set({ isStreaming: true });
               return;
             }
@@ -941,6 +998,14 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
           onmessage(msg) {
             try {
               const raw = JSON.parse(msg.data);
+
+              if (
+                raw.event === "error" &&
+                isRateLimitError(raw.error || raw.statusCode || raw.status)
+              ) {
+                notifyRateLimit();
+              }
+
               const hasStream = !!raw.stream_id;
               const ev = ensureTs(raw) as AgentEvent;
 
@@ -1026,6 +1091,13 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
 
           onerror(err) {
             console.error("SSE Error:", err);
+
+            if (shouldRetryRateLimit(err, rateLimitRetryCount)) {
+              rateLimitRetryCount += 1;
+              notifyRateLimit();
+              return nextRateLimitRetryDelay(rateLimitRetryCount);
+            }
+
             if (batchTimer) {
               clearTimeout(batchTimer);
               processBatch();
