@@ -16,14 +16,19 @@ import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
 import { useMutation } from "@apollo/client";
 import { ChatBubbleIcon } from "@radix-ui/react-icons";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, PlusCircle, Trash2 } from "lucide-react";
+import { Loader2, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DELETE_THREAD_MUTATION } from "../../apollo/mutation/thread";
-import { useChat } from "../../store/chat-store";
+import {
+  DELETE_THREAD_MUTATION,
+  UPDATE_THREAD_MUTATION,
+} from "../../apollo/mutation/thread";
+import { GET_USER_THREADS_QUERY } from "../../apollo/query/thread";
+import { useChat, useChatStore } from "../../store/chat-store";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/core/providers/auth";
 import { useIsMobile } from "@/core/hooks/use-mobile";
+import { toast } from "@/core/hooks/use-toast";
 
 export function ChatHistorySidebar() {
   const { isChatSidebarOpen, closeChatSidebar } = useChatSidebar();
@@ -32,6 +37,9 @@ export function ChatHistorySidebar() {
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
   const [threadToDelete, setThreadToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [threadToRename, setThreadToRename] = useState<string | null>(null);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
   const router = useRouter();
   const pathname = usePathname();
   const { token } = useAuth();
@@ -40,18 +48,42 @@ export function ChatHistorySidebar() {
     availableThreads,
     isLoadingThreadList,
     fetchAvailableThreads,
-    loadThread,
     currentThreadId,
     resetChat,
   } = useChat();
+  const updateThreadInState = useChatStore((s) => s.updateThreadInState);
+
+  const refetchSidebar = {
+    refetchQueries: [{ query: GET_USER_THREADS_QUERY }],
+    awaitRefetchQueries: true,
+  } as const;
 
   const [deleteThread, { loading: isDeleting }] = useMutation(
     DELETE_THREAD_MUTATION,
     {
+      ...refetchSidebar,
       onCompleted: () => {
         fetchAvailableThreads();
         setIsDeleteDialogOpen(false);
         setThreadToDelete(null);
+      },
+    }
+  );
+
+  const [updateThread, { loading: isRenaming }] = useMutation(
+    UPDATE_THREAD_MUTATION,
+    {
+      ...refetchSidebar,
+      onCompleted: (data) => {
+        if (data?.updateThread) {
+          updateThreadInState(data.updateThread._id, {
+            title: data.updateThread.title,
+            description: data.updateThread.description,
+          });
+        }
+        setIsRenameDialogOpen(false);
+        setThreadToRename(null);
+        setRenameValue("");
       },
     }
   );
@@ -79,24 +111,22 @@ export function ChatHistorySidebar() {
   };
 
   const handleThreadSelect = (threadId: string) => {
-    if (pathname !== "/dashboard") {
-      router.push("/dashboard");
-    }
-    loadThread(threadId);
+    // URL is the source of truth for the active thread. Routing here triggers
+    // the [id]/page.tsx to call loadThread, so we don't load in-line.
+    router.push(`/dashboard/chat/${threadId}`);
 
-    // Close sidebar on mobile after selecting a thread
     if (isMobile) {
       closeChatSidebar();
     }
   };
 
   const handleNewChat = () => {
-    resetChat();
     if (pathname !== "/dashboard") {
       router.push("/dashboard");
+    } else {
+      resetChat();
     }
 
-    // Close sidebar on mobile after creating new chat
     if (isMobile) {
       closeChatSidebar();
     }
@@ -118,6 +148,11 @@ export function ChatHistorySidebar() {
 
       if (threadToDelete === currentThreadId) {
         resetChat();
+        // The deleted thread might be the one currently open in the URL.
+        // Send the user back to /dashboard so they don't sit on a 404 chat.
+        if (pathname?.startsWith("/dashboard/chat/")) {
+          router.replace("/dashboard");
+        }
       }
     } catch (error) {
       console.error("Error deleting thread:", error);
@@ -129,6 +164,44 @@ export function ChatHistorySidebar() {
     if (!threadToDelete) return "";
     const thread = availableThreads.find((t) => t._id === threadToDelete);
     return thread?.title || "this chat";
+  };
+
+  const openRenameDialog = (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation();
+    const thread = availableThreads.find((t) => t._id === threadId);
+    setThreadToRename(threadId);
+    setRenameValue(thread?.title ?? "");
+    setIsRenameDialogOpen(true);
+  };
+
+  const confirmRenameThread = async () => {
+    if (!threadToRename) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      toast({
+        title: "Title required",
+        description: "Chat title cannot be empty.",
+      });
+      return;
+    }
+
+    try {
+      await updateThread({
+        variables: {
+          updateThreadInput: {
+            threadId: threadToRename,
+            title: trimmed,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error renaming thread:", error);
+      toast({
+        title: "Rename failed",
+        description: "We couldn't rename this chat. Please try again.",
+      });
+      setIsRenameDialogOpen(false);
+    }
   };
 
   return (
@@ -257,30 +330,54 @@ export function ChatHistorySidebar() {
 
                                 <AnimatePresence>
                                   {hoveredThreadId === thread._id && (
-                                    <motion.button
+                                    <motion.div
                                       initial={{ opacity: 0 }}
                                       animate={{ opacity: 1 }}
                                       exit={{ opacity: 0 }}
-                                      onClick={(e) =>
-                                        openDeleteDialog(e, thread._id)
-                                      }
-                                      className="absolute top-2 right-2 p-1 rounded-full text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors"
-                                      disabled={
-                                        isDeleting ||
-                                        threadToDelete === thread._id
-                                      }
-                                      aria-label="Delete thread"
+                                      className="absolute top-2 right-2 flex items-center gap-1"
                                     >
-                                      {threadToDelete === thread._id &&
-                                      isDeleting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Trash2
-                                          className="h-4 w-4"
-                                          color="red"
-                                        />
-                                      )}
-                                    </motion.button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) =>
+                                          openRenameDialog(e, thread._id)
+                                        }
+                                        className="p-1 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
+                                        disabled={
+                                          isRenaming &&
+                                          threadToRename === thread._id
+                                        }
+                                        aria-label="Rename thread"
+                                      >
+                                        {threadToRename === thread._id &&
+                                        isRenaming ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Pencil className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) =>
+                                          openDeleteDialog(e, thread._id)
+                                        }
+                                        className="p-1 rounded-full text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors"
+                                        disabled={
+                                          isDeleting ||
+                                          threadToDelete === thread._id
+                                        }
+                                        aria-label="Delete thread"
+                                      >
+                                        {threadToDelete === thread._id &&
+                                        isDeleting ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Trash2
+                                            className="h-4 w-4"
+                                            color="red"
+                                          />
+                                        )}
+                                      </button>
+                                    </motion.div>
                                   )}
                                 </AnimatePresence>
                               </div>
@@ -337,6 +434,68 @@ export function ChatHistorySidebar() {
                 </>
               ) : (
                 "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isRenameDialogOpen}
+        onOpenChange={(open) => {
+          setIsRenameDialogOpen(open);
+          if (!open) {
+            setThreadToRename(null);
+            setRenameValue("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">
+              Rename Chat
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Pick a new title for this chat. This only affects how it appears
+              in your history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2">
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="Chat title"
+              autoFocus
+              disabled={isRenaming}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  confirmRenameThread();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter className="flex space-x-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsRenameDialogOpen(false)}
+              disabled={isRenaming}
+              className="rounded-lg"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRenameThread}
+              disabled={isRenaming || !renameValue.trim()}
+              className="rounded-lg gap-2"
+            >
+              {isRenaming ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
               )}
             </Button>
           </DialogFooter>

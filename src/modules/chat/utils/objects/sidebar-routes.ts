@@ -17,28 +17,35 @@ import {
   Text,
   ChartBar,
   LucideFileQuestion,
+  MessageSquareHeart,
 } from "lucide-react";
 
 import { SidebarGroups } from "@/core/types/ui/sidebar";
 import { QuestionMarkIcon } from "@radix-ui/react-icons";
+import { isAvatarEnabled } from "@/core/utils/feature-flags";
 
 const baseRoute = "/dashboard";
 
 const getSidebarRoutes = (routeName: string): SidebarGroups => {
-  return [
+  const routes: SidebarGroups = [
     {
       title: "Chat",
       url: baseRoute,
       icon: Chat,
       isActive: routeName === baseRoute,
     },
-    {
+  ];
+
+  if (isAvatarEnabled()) {
+    routes.push({
       title: "Avatars",
       url: `${baseRoute}/avatars`,
       icon: User2,
       isActive: routeName === `${baseRoute}/avatars`,
-    },
-    
+    });
+  }
+
+  routes.push(
     {
       title: "Question History",
       url: `${baseRoute}/question-history`,
@@ -81,7 +88,8 @@ const getSidebarRoutes = (routeName: string): SidebarGroups => {
       icon: Settings,
       isActive:
         routeName.includes(`${baseRoute}/settings`) ||
-        routeName.includes(`${baseRoute}/help`),
+        routeName.includes(`${baseRoute}/help`) ||
+        routeName.includes(`${baseRoute}/feedback`),
       items: [
         {
           title: "Account Settings",
@@ -95,9 +103,17 @@ const getSidebarRoutes = (routeName: string): SidebarGroups => {
           icon: HelpCircle,
           isActive: routeName === `${baseRoute}/help`,
         },
+        {
+          title: "Send Feedback",
+          url: `${baseRoute}/feedback`,
+          icon: MessageSquareHeart,
+          isActive: routeName === `${baseRoute}/feedback`,
+        },
       ],
     },
-  ];
+  );
+
+  return routes;
 };
 
 export { getSidebarRoutes };

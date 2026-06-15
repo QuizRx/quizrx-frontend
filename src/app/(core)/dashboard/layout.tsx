@@ -5,6 +5,7 @@ import ChatNavHeader from "@/modules/chat/layouts/navbar/header";
 import { ChatHistorySidebar } from "@/modules/chat/layouts/sidebar/chat-history";
 import { AppSidebar } from "@/modules/chat/layouts/sidebar/dashboard";
 import { ChatSidebarProvider } from "@/modules/chat/providers/chat-sidebar";
+import { FeedbackPrompt } from "@/modules/feedback/components/feedback-prompt";
 
 export default function RootLayout({
   children,
@@ -29,6 +30,7 @@ export default function RootLayout({
                 {children}
               </div>
             </div>
+            <FeedbackPrompt />
           </ChatSidebarProvider>
         </SidebarInset>
       </SidebarProvider>

@@ -9,6 +9,7 @@ export default function Page() {
   const searchParams = useSearchParams();
   let inviteObj: { name?: string; email?: string } | undefined = undefined;
   const inviteRaw = searchParams.get("invite");
+  const inviteCode = searchParams.get("inviteCode") || "";
   if (inviteRaw) {
     try {
       inviteObj = JSON.parse(inviteRaw);
@@ -32,7 +33,11 @@ export default function Page() {
             <p className="text-md font-normal">Begin your Journey with QuizRX</p>
           </div>
         </div>
-        <SignupForm forceEmail={forceEmail} startingName={startingName}/>
+        <SignupForm
+          forceEmail={forceEmail}
+          startingName={startingName}
+          inviteCode={inviteCode}
+        />
       </div>
     </div>
   );

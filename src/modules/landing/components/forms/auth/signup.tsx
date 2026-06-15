@@ -34,15 +34,17 @@ import { useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import {
   CREATE_USER_WITH_EMAIL_AND_PASSWORD_MUTATION,
-  CREATE_USER_WITH_GOOGLE_MUTATION,
+  CREATE_USER_WITH_GOOGLE_INVITE_MUTATION,
 } from "@/modules/landing/apollo/mutation/UserMutations";
 import { GET_USER } from "@/core/providers/user";
 export function SignupForm({
   forceEmail,
   startingName,
+  inviteCode,
 }: {
   forceEmail?: string;
   startingName?: string;
+  inviteCode?: string;
 }) {
   const [getUser] = useLazyQuery(GET_USER, { fetchPolicy: "network-only" });
   const form = useForm<SignUpFormValues>({
@@ -51,6 +53,7 @@ export function SignupForm({
       firstName: startingName ? startingName.split(" ")[0] : "",
       lastName: startingName ? startingName.split(" ").slice(1).join(" ") : "",
       email: forceEmail || "",
+      inviteCode: inviteCode || "",
       password: "",
     },
   });
@@ -79,6 +82,7 @@ export function SignupForm({
           lastName: data.lastName,
           email: data.email,
           password: data.password,
+          inviteCode: data.inviteCode,
         },
       },
       onCompleted: async (res) => {
@@ -118,7 +122,9 @@ export function SignupForm({
     });
   };
 
-  const [createUserWithGoogle] = useMutation(CREATE_USER_WITH_GOOGLE_MUTATION);
+  const [createUserWithGoogle] = useMutation(
+    CREATE_USER_WITH_GOOGLE_INVITE_MUTATION
+  );
 
   const handleGoogleSignUp = () => {
     const provider = new GoogleAuthProvider();
@@ -135,7 +141,9 @@ export function SignupForm({
       .then(async (idToken) => {
         setCookie("token", idToken);
         setStatus("processing");
-        await createUserWithGoogle({ variables: { idToken } });
+        await createUserWithGoogle({
+          variables: { idToken, inviteCode: form.getValues("inviteCode") },
+        });
         await decideNextRoute();
       })
       .catch((error) => {
@@ -251,6 +259,38 @@ export function SignupForm({
           </motion.div>
 
           <motion.div
+            className="grid gap-2 z-10"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              duration: 0.4,
+              ease: [0.17, 0.67, 0.83, 0.67] as const,
+            }}
+          >
+            <FormField
+              control={form.control}
+              name="inviteCode"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="inviteCode"
+                      placeholder="Enter your invite code"
+                      required
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Invite links are single-use and expire after 14 days.
+            </p>
+          </motion.div>
+
+          <motion.div
             className="grid gap-2"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -321,6 +361,16 @@ export function SignupForm({
             Sign Up
           </Button>
 
+          <p className="text-xs text-muted-foreground leading-5">
+            Closed beta note: by creating an account, you agree that QuizRx
+            stores your profile, chat history, and generated questions to
+            deliver and improve the beta experience. Read our{" "}
+            <Link href="/privacy-policy" className="text-primary underline">
+              privacy notice
+            </Link>
+            .
+          </p>
+
           <motion.div
             className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border"
             initial={{ opacity: 0 }}
@@ -342,6 +392,7 @@ export function SignupForm({
               className="w-full"
               type="button"
               onClick={handleGoogleSignUp}
+              disabled={!form.getValues("inviteCode")}
             >
               <Image
                 src="/logo/google.svg"

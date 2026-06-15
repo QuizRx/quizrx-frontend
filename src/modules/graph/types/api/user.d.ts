@@ -7,6 +7,9 @@ export type User = {
   lastName: string;
   role: UserRole;
   status: UserStatus;
+  inviteIssuedAt?: string | null;
+  inviteExpiresAt?: string | null;
+  inviteAcceptedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 };

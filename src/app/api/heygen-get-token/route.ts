@@ -1,5 +1,6 @@
-const HEYGEN_API_KEY = process.env.NEXT_PUBLIC_HEYGEN_API_KEY;
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
 const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_APP_URL || "*";
+const AVATAR_ENABLED = process.env.NEXT_PUBLIC_ENABLE_AVATAR === "true";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -15,6 +16,13 @@ export async function OPTIONS() {
 
 export async function POST() {
   try {
+    if (!AVATAR_ENABLED) {
+      return new Response("Avatar feature is disabled", {
+        status: 410,
+        headers: { "Access-Control-Allow-Origin": ALLOWED_ORIGIN },
+      });
+    }
+
     if (!HEYGEN_API_KEY) {
       throw new Error("API key is missing from .env");
     }

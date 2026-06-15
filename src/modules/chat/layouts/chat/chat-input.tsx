@@ -37,6 +37,7 @@ import { formatQuestionForSpeech } from "../../utils/formatter/question-formatte
 import { MessageType } from "../../types/api/messages";
 import { useAvatarStore } from "../../store/avatar-store";
 import { UserCircle } from "lucide-react";
+import { isAvatarEnabled, isVoiceEnabled } from "@/core/utils/feature-flags";
 
 // Type definitions
 export type ChatInputFileType = {
@@ -52,14 +53,12 @@ export type ChatInputProps = {
   placeholder?: string;
   initialValue?: string;
   className?: string;
-  elevenLabsApiKey?: string; // Add API key prop
 };
 
 export function ChatInput({
   placeholder = "How Can I help you today?",
   initialValue = "",
   className = "",
-  elevenLabsApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || "", // Default to env variable
 }: ChatInputProps) {
   const { isLoading, handleSubmit, isChatStarted, messages } = useChat();
   const {
@@ -71,6 +70,8 @@ export function ChatInput({
   } = useTextToSpeech();
   const { isAvatarVisible, toggleAvatar, showAvatarWithContext } =
     useAvatarStore();
+  const voiceEnabled = isVoiceEnabled();
+  const avatarEnabled = isAvatarEnabled();
 
   // Helper function to get current question context from messages
   const getCurrentQuestionContext = () => {
@@ -207,8 +208,7 @@ export function ChatInput({
 
   // Function to find and read the most recent question
   const handleTextToSpeech = async () => {
-    if (!elevenLabsApiKey) {
-      console.error("ElevenLabs API key is required");
+    if (!voiceEnabled) {
       return;
     }
 
@@ -238,7 +238,7 @@ export function ChatInput({
         : [questionMessage.questions]
     );
 
-    await speak(speechText, elevenLabsApiKey, {
+    await speak(speechText, "", {
       voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel voice
       stability: 0.5,
       similarityBoost: 0.75,
@@ -496,37 +496,39 @@ export function ChatInput({
               </div>
 
               <div className="ml-auto flex gap-1 sm:gap-2 md:gap-3 mt-2 sm:mt-0 flex-shrink-0">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      className={cn(
-                        iconButtonStyles,
-                        "bg-card hover:bg-card/70",
-                        (isPlaying || audioLoading) && "bg-primary/20"
-                      )}
-                      onClick={handleTextToSpeech}
-                      disabled={isLoading || audioLoading || !elevenLabsApiKey}
-                    >
-                      {audioLoading ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : isPlaying ? (
-                        <Square className="h-5 w-5" />
-                      ) : (
-                        <AudioLines className="h-5 w-5" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent sideOffset={12}>
-                    {audioLoading
-                      ? "Loading audio..."
-                      : isPlaying
-                      ? "Stop reading"
-                      : "Read question aloud"}
-                  </TooltipContent>
-                </Tooltip>
+                {voiceEnabled && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className={cn(
+                          iconButtonStyles,
+                          "bg-card hover:bg-card/70",
+                          (isPlaying || audioLoading) && "bg-primary/20"
+                        )}
+                        onClick={handleTextToSpeech}
+                        disabled={isLoading || audioLoading}
+                      >
+                        {audioLoading ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : isPlaying ? (
+                          <Square className="h-5 w-5" />
+                        ) : (
+                          <AudioLines className="h-5 w-5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={12}>
+                      {audioLoading
+                        ? "Loading audio..."
+                        : isPlaying
+                        ? "Stop reading"
+                        : "Read question aloud"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
 
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -556,29 +558,31 @@ export function ChatInput({
                   </TooltipContent>
                 </Tooltip>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className={cn(
-                        iconButtonStyles,
-                        isAvatarVisible
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card hover:bg-card/70",
-                        "rounded-full h-10 w-10 flex items-center justify-center"
-                      )}
-                      onClick={handleAvatarToggle}
-                      aria-label={
-                        isAvatarVisible ? "Hide Avatar" : "Show Avatar"
-                      }
-                    >
-                      <UserCircle className="h-5 w-5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent sideOffset={12}>
-                    {isAvatarVisible ? "Hide Avatar" : "Show Avatar"}
-                  </TooltipContent>
-                </Tooltip>
+                {avatarEnabled && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          iconButtonStyles,
+                          isAvatarVisible
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-card hover:bg-card/70",
+                          "rounded-full h-10 w-10 flex items-center justify-center"
+                        )}
+                        onClick={handleAvatarToggle}
+                        aria-label={
+                          isAvatarVisible ? "Hide Avatar" : "Show Avatar"
+                        }
+                      >
+                        <UserCircle className="h-5 w-5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={12}>
+                      {isAvatarVisible ? "Hide Avatar" : "Show Avatar"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </div>
           </div>
@@ -641,30 +645,33 @@ export function ChatInput({
                 </Tooltip>
 
                 {/* Avatar button */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={isAvatarVisible ? "default" : "outline"}
-                      className={cn(
-                        "h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center shrink-0",
-                        isAvatarVisible
-                          ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                          : "bg-card hover:bg-card/70"
-                      )}
-                      onClick={handleAvatarToggle}
-                      disabled={isLoading}
-                    >
-                      <UserCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent sideOffset={12}>
-                    {isAvatarVisible ? "Hide Avatar" : "Show Avatar"}
-                  </TooltipContent>
-                </Tooltip>
+                {avatarEnabled && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant={isAvatarVisible ? "default" : "outline"}
+                        className={cn(
+                          "h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center shrink-0",
+                          isAvatarVisible
+                            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                            : "bg-card hover:bg-card/70"
+                        )}
+                        onClick={handleAvatarToggle}
+                        disabled={isLoading}
+                      >
+                        <UserCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={12}>
+                      {isAvatarVisible ? "Hide Avatar" : "Show Avatar"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
 
                 {/* Audio button */}
+                {voiceEnabled && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -676,7 +683,7 @@ export function ChatInput({
                         (isPlaying || audioLoading) && "bg-primary/20"
                       )}
                       onClick={handleTextToSpeech}
-                      disabled={isLoading || audioLoading || !elevenLabsApiKey}
+                      disabled={isLoading || audioLoading}
                     >
                       {audioLoading ? (
                         <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
@@ -695,6 +702,7 @@ export function ChatInput({
                       : "Read aloud"}
                   </TooltipContent>
                 </Tooltip>
+                )}
               </>
             )}
 

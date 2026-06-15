@@ -8,8 +8,20 @@ import {
 } from "@/core/components/ui/tabs";
 import AvatarGrid from "@/modules/avatars/layouts/avatar/grid";
 import { avatars } from "@/modules/avatars/utils/objects/avatars";
+import { isAvatarEnabled } from "@/core/utils/feature-flags";
 
 export default function Page() {
+  if (!isAvatarEnabled()) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl mb-2">Avatars unavailable</h1>
+        <p className="text-zinc-400">
+          Avatar sessions are currently disabled for closed beta.
+        </p>
+      </div>
+    );
+  }
+
   // Filter avatars for each specialty
 
   return (

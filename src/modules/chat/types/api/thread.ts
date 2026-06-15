@@ -6,6 +6,12 @@ export type CreateThreadInput = {
   description?: string;
 };
 
+export type UpdateThreadInput = {
+  threadId: string;
+  title?: string;
+  description?: string;
+};
+
 export type Thread = BaseEntityProps & {
   title: string;
   description?: string;

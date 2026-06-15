@@ -15,6 +15,7 @@ import useVoiceChat from "./use-voice-chat";
 import { StreamingAvatarSessionState } from "../types/streaming-avatar";
 import { useMemoizedFn } from "ahooks";
 import { useToast } from "@/core/hooks/use-toast";
+import { isAvatarEnabled } from "@/core/utils/feature-flags";
 
 const DEFAULT_CHAPTER_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
@@ -250,6 +251,10 @@ export default function useStreamingAvatarSession() {
 
   const startSession = useCallback(async (config: SessionConfig, initialPrompt?: string) => {
     try {
+      if (!isAvatarEnabled()) {
+        throw new Error("Avatar feature is disabled");
+      }
+
       console.log("Starting session...");
       console.log("Session config:", config);
       setSessionState(StreamingAvatarSessionState.CONNECTING);

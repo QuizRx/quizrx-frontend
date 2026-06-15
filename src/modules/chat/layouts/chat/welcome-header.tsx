@@ -20,6 +20,7 @@ import { Badge } from "@/core/components/ui/badge";
 import { Button } from "@/core/components/ui/button";
 import { motion } from "motion/react";
 import FormTopics from "./form-topics";
+import Link from "next/link";
 // Type definition for welcome cards
 type CardType = {
   icon: React.ElementType;
@@ -186,6 +187,14 @@ export const WelcomeHeader = () => {
             <p className="text-muted-foreground max-w-lg mx-auto text-xs sm:text-sm px-2">
               Let's dive into today&apos;s quiz journey. Whether you're here to
               practice or challenge yourself, we&apos;ve got your back.
+            </p>
+            <p className="text-muted-foreground max-w-lg mx-auto text-[11px] sm:text-xs px-2">
+              Privacy notice: QuizRx stores your account details, chat history,
+              and generated questions during this closed beta. Read more in our{" "}
+              <Link href="/privacy-policy" className="text-primary underline">
+                privacy notice
+              </Link>
+              .
             </p>
           </div>
 

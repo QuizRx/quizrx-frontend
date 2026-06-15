@@ -56,7 +56,7 @@ const Footer = () => {
           },
           {
             text: "Privacy",
-            link: "#",
+            link: "/privacy-policy",
           },
         ],
       },

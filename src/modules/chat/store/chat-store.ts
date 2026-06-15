@@ -1,5 +1,6 @@
 import { apolloClientInstance } from "@/core/providers/apollo-wrapper";
 import { useAuth } from "@/core/providers/auth";
+import { useRouter } from "next/navigation";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { SEND_MESSAGE_MUTATION } from "../apollo/mutation/chat";
@@ -11,6 +12,7 @@ import {
   isRateLimitError,
 } from "@/core/utils/rate-limit";
 import {
+  GET_THREAD_QUERY,
   GET_USER_THREAD_MESSAGES_QUERY,
   GET_USER_THREADS_QUERY,
 } from "../apollo/query/thread";
@@ -52,16 +54,25 @@ interface ChatActions {
     action: "like" | "unlike" | "download" | "copy" | "rewrite",
     messageId: string
   ) => void;
-  handleSubmit: (message: string, authToken?: string) => void;
+  handleSubmit: (
+    message: string,
+    authToken?: string,
+    onThreadCreated?: (threadId: string) => void
+  ) => void;
   resetChat: () => void;
   createThread: (
     initialMessage: string,
     title?: string,
     description?: string,
-    authToken?: string
+    authToken?: string,
+    onThreadCreated?: (threadId: string) => void
   ) => Promise<void>;
   fetchAvailableThreads: () => Promise<void>;
-  loadThread: (threadId: string) => Promise<void>;
+  loadThread: (threadId: string) => Promise<boolean>;
+  updateThreadInState: (
+    threadId: string,
+    updates: Partial<Thread>
+  ) => void;
   setLastStreamingMessageId: (messageId: string | null) => void;
   addAgentEvent: (event: AgentEvent) => void;
   addAgentEvents: (events: AgentEvent[]) => void;
@@ -521,7 +532,11 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
         }
       },
 
-      handleSubmit: async (message: string, authToken?: string) => {
+      handleSubmit: async (
+        message: string,
+        authToken?: string,
+        onThreadCreated?: (threadId: string) => void
+      ) => {
         try {
           if (!get().isChatStarted) {
             set({ isChatStarted: true });
@@ -542,7 +557,8 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
                 message,
                 undefined,
                 undefined,
-                authToken
+                authToken,
+                onThreadCreated
               );
               return;
             } catch (error) {
@@ -606,7 +622,8 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
         initialMessage: string,
         title?: string,
         description?: string,
-        authToken?: string
+        authToken?: string,
+        onThreadCreated?: (threadId: string) => void
       ) => {
         try {
           set({ isLoading: true });
@@ -644,30 +661,29 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
           if (result.data?.createThread) {
             const newThread = result.data.createThread as Thread;
 
-            // Update local state with the new thread
+            // Apply all post-creation state in one set so consumers (e.g. the
+            // /dashboard reset effect) never observe a half-updated store
+            // where currentThread is set but isStreaming is still false.
             set((state) => ({
               currentThread: newThread,
               isChatStarted: true,
               isLoading: false,
-              // Update the temporary message with the real threadId
+              isStreaming: true,
               messages: state.messages.map((msg) =>
                 msg._id === tempUserMessage._id
                   ? { ...msg, threadId: newThread._id }
                   : msg
               ),
+              availableThreads: state.availableThreads.some(
+                (t) => t._id === newThread._id
+              )
+                ? state.availableThreads
+                : [newThread, ...state.availableThreads],
             }));
 
-            // Add the new thread to availableThreads
-            set((state) => ({
-              availableThreads: [newThread, ...state.availableThreads],
-            }));
-
-            // Add empty AI message for streaming
-
-            set((state) => ({
-              isStreaming: true,
-              isLoading: false,
-            }));
+            // Notify caller (e.g. router) that a new thread is ready so the URL
+            // can be moved to /dashboard/chat/[id] before SSE chunks arrive.
+            onThreadCreated?.(newThread._id);
 
             // Start modular SSE connection for initial message
             callSSEConnection(newThread._id, initialMessage, authToken);
@@ -694,7 +710,9 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
                 orderBy: "desc",
               },
             },
-            fetchPolicy: "cache-first", // Changed from network-only for better performance
+            // Always hit the network so newly-created/renamed/deleted threads
+            // from this or other tabs are reflected in the sidebar.
+            fetchPolicy: "network-only",
           });
 
           if (result.data?.getUserThreads?.data) {
@@ -711,7 +729,18 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
         }
       },
 
-      loadThread: async (threadId: string) => {
+      updateThreadInState: (threadId: string, updates: Partial<Thread>) =>
+        set((state) => ({
+          availableThreads: state.availableThreads.map((t) =>
+            t._id === threadId ? { ...t, ...updates } : t
+          ),
+          currentThread:
+            state.currentThread?._id === threadId
+              ? { ...state.currentThread, ...updates }
+              : state.currentThread,
+        })),
+
+      loadThread: async (threadId: string): Promise<boolean> => {
         try {
           set({
             isLoading: true,
@@ -733,6 +762,36 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
 
           if (existingThread) {
             set({ currentThread: existingThread });
+          } else {
+            // Refresh case: thread is not in the in-memory list (e.g. user
+            // landed directly on /dashboard/chat/[id]). Fetch it standalone.
+            try {
+              const threadResult = await client.query({
+                query: GET_THREAD_QUERY,
+                variables: { id: threadId },
+                fetchPolicy: "network-only",
+                errorPolicy: "all",
+              });
+
+              if (threadResult.data?.getThread) {
+                const fetchedThread = threadResult.data.getThread as Thread;
+                set((state) => ({
+                  currentThread: fetchedThread,
+                  availableThreads: state.availableThreads.some(
+                    (t) => t._id === fetchedThread._id
+                  )
+                    ? state.availableThreads
+                    : [fetchedThread, ...state.availableThreads],
+                }));
+              } else {
+                set({ isLoading: false });
+                return false;
+              }
+            } catch (err) {
+              console.error("Error fetching single thread:", err);
+              set({ isLoading: false });
+              return false;
+            }
           }
 
           // Then fetch all messages for this thread
@@ -745,7 +804,10 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
                 limit: 50, // Adjust as needed
               },
             },
-            // Removed fetchPolicy to use Apollo Client default (cache-first)
+            // Always hit the network so a hard refresh reflects the latest
+            // persisted messages (including AI responses that finished after
+            // the previous tab closed).
+            fetchPolicy: "network-only",
             errorPolicy: "all",
           });
 
@@ -841,11 +903,15 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
               });
             }
           } else {
-            set({ isLoading: false });
+            // No messages yet (could be a brand-new thread). Still mark the
+            // thread as the active one so the UI shows the chat shell.
+            set({ isLoading: false, isChatStarted: true });
           }
+          return true;
         } catch (error) {
           console.error("Error loading thread:", error);
           set({ isLoading: false });
+          return false;
         }
       },
       openStreamBucket: ({ streamId, macroTitle, subtopicTitle }) =>
@@ -1130,7 +1196,14 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
 
 export const useChat = () => {
   const { token, refreshToken } = useAuth();  // ADD refreshToken
+  const router = useRouter();
   const store = useChatStore();
+
+  // Default navigation callback fired right after a new thread is created.
+  // The chat URL becomes the source of truth so refreshes/shares work.
+  const navigateToThread = (threadId: string) => {
+    router.push(`/dashboard/chat/${threadId}`);
+  };
 
   // Wrap handleSubmit to include auth token - ALWAYS GET FRESH TOKEN
   const handleSubmitWithAuth = async (message: string) => {
@@ -1141,9 +1214,9 @@ export const useChat = () => {
 
     // Get fresh token before API call to prevent expiry errors
     const freshToken = await refreshToken() || token;
-    
+
     const store = useChatStore.getState();
-    return store.handleSubmit(message, freshToken);
+    return store.handleSubmit(message, freshToken, navigateToThread);
   };
 
   // Wrap createThread to include auth token - ALWAYS GET FRESH TOKEN
@@ -1161,7 +1234,13 @@ export const useChat = () => {
     const freshToken = await refreshToken() || token;
 
     const store = useChatStore.getState();
-    return store.createThread(initialMessage, title, description, freshToken);
+    return store.createThread(
+      initialMessage,
+      title,
+      description,
+      freshToken,
+      navigateToThread
+    );
   };
 
   // ALSO UPDATE startFormTopic
@@ -1177,7 +1256,7 @@ export const useChat = () => {
       console.error("No auth token available");
       return;
     }
-    
+
     // Get fresh token - but since this is sync, we need async wrapper
     refreshToken().then((freshToken) => {
       store.startFormTopicStreaming(topics, freshToken || token, onThreadReady);

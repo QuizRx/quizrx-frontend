@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from 'react';
+import { isVoiceEnabled } from '../utils/feature-flags';
 
 export interface TextToSpeechOptions {
   voiceId?: string;
@@ -22,6 +23,10 @@ export const useTextToSpeech = () => {
     options: TextToSpeechOptions = {}
   ) => {
     try {
+      if (!isVoiceEnabled()) {
+        throw new Error('Voice feature is disabled');
+      }
+
       setIsLoading(true);
       setError(null);
 

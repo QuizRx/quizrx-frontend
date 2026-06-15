@@ -104,6 +104,44 @@ export const userColumns: ColumnDef<User>[] = [
     },
   },
   {
+    id: "inviteLifecycle",
+    header: () => <div className="text-left">Invite Lifecycle</div>,
+    cell: ({ row }) => {
+      const { inviteIssuedAt, inviteExpiresAt, inviteAcceptedAt } = row.original;
+
+      if (inviteAcceptedAt) {
+        return (
+          <div className="text-left text-xs">
+            <span className="font-medium text-green-700">Accepted</span>
+            <div>{moment(inviteAcceptedAt).format("Do MMM YYYY, h:mm A")}</div>
+          </div>
+        );
+      }
+
+      if (inviteExpiresAt) {
+        const isExpired = moment(inviteExpiresAt).isBefore(moment());
+        return (
+          <div className="text-left text-xs">
+            <span className={`font-medium ${isExpired ? "text-red-600" : "text-amber-600"}`}>
+              {isExpired ? "Expired" : "Pending"}
+            </span>
+            <div>Expires: {moment(inviteExpiresAt).format("Do MMM YYYY")}</div>
+          </div>
+        );
+      }
+
+      if (inviteIssuedAt) {
+        return (
+          <div className="text-left text-xs">
+            Issued: {moment(inviteIssuedAt).format("Do MMM YYYY")}
+          </div>
+        );
+      }
+
+      return <div className="text-left text-xs text-muted-foreground">-</div>;
+    },
+  },
+  {
     id: "actions",
     header: () => <div className="text-left">Actions</div>,
     cell: ({ row }) => {

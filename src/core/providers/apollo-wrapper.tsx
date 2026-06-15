@@ -11,7 +11,7 @@ import {
   RefetchQueriesInclude,
 } from "@apollo/client";
 import { onError } from "@apollo/client/link/error";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useAuth } from "./auth";
 import { getCookie } from "cookies-next";
 
@@ -33,9 +33,18 @@ export function refetchQueries(include: RefetchQueriesInclude) {
 // Create wrapper component
 export function ApolloWrapper({ children }: React.PropsWithChildren) {
   const { token, refreshToken } = useAuth();
-  const [client, setClient] = useState<ApolloClient<any> | null>(null);
+  const tokenRef = useRef(token);
+  const refreshTokenRef = useRef(refreshToken);
 
   useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
+  useEffect(() => {
+    refreshTokenRef.current = refreshToken;
+  }, [refreshToken]);
+
+  const client = useMemo(() => {
     const httpLink = new HttpLink({
       uri: process.env.NEXT_PUBLIC_API_URL + "/graphql",
       fetchOptions: {
@@ -58,10 +67,18 @@ export function ApolloWrapper({ children }: React.PropsWithChildren) {
               message.includes("Unauthorized") ||
               message.includes("invalid token")
             ) {
+              const retryAttempt =
+                Number(operation.getContext().authRetryAttempt) || 0;
+
+              if (retryAttempt >= 1) {
+                return;
+              }
+
               // Return a promise that will retry the operation with a new token
               return new Observable<FetchResult>((observer) => {
                 // Silent refresh
-                refreshToken()
+                refreshTokenRef
+                  .current()
                   .then((newToken) => {
                     if (!newToken) {
                       throw new Error("Failed to refresh token");
@@ -74,6 +91,7 @@ export function ApolloWrapper({ children }: React.PropsWithChildren) {
                         ...oldHeaders,
                         Authorization: `Bearer ${newToken}`,
                       },
+                      authRetryAttempt: retryAttempt + 1,
                     });
                   })
                   .then(() => {
@@ -102,7 +120,7 @@ export function ApolloWrapper({ children }: React.PropsWithChildren) {
 
     // Create authentication link to add the token to every request
     const authLink = new ApolloLink((operation, forward) => {
-      const newToken = token || getCookie("token");
+      const newToken = tokenRef.current || getCookie("token");
       operation.setContext(({ headers = {} }) => ({
         headers: {
           ...headers,
@@ -173,8 +191,8 @@ export function ApolloWrapper({ children }: React.PropsWithChildren) {
       window.apolloClient = apolloClient;
     }
 
-    setClient(apolloClient);
-  }, [token, refreshToken]);
+    return apolloClient;
+  }, []);
 
   if (!client) {
     // You could return a loading state here if needed

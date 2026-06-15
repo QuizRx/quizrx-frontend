@@ -17,6 +17,9 @@ export const GET_ALL_USERS: TypedDocumentNode<
         updatedAt
         role
         status
+        inviteIssuedAt
+        inviteExpiresAt
+        inviteAcceptedAt
       }
       meta {
         lastPage

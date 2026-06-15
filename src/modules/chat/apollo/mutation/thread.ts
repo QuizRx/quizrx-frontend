@@ -1,5 +1,9 @@
 import { TypedDocumentNode, gql } from "@apollo/client";
-import { CreateThreadInput, Thread } from "../../types/api/thread";
+import {
+  CreateThreadInput,
+  Thread,
+  UpdateThreadInput,
+} from "../../types/api/thread";
 
 export const CREATE_THREAD_MUTATION: TypedDocumentNode<
   {
@@ -31,5 +35,25 @@ export const DELETE_THREAD_MUTATION: TypedDocumentNode<
 > = gql`
   mutation DeleteThread($threadId: String!) {
     deleteThread(threadId: $threadId)
+  }
+`;
+
+export const UPDATE_THREAD_MUTATION: TypedDocumentNode<
+  {
+    updateThread: Thread;
+  },
+  {
+    updateThreadInput: UpdateThreadInput;
+  }
+> = gql`
+  mutation UpdateThread($updateThreadInput: UpdateThreadInput!) {
+    updateThread(updateThreadInput: $updateThreadInput) {
+      _id
+      createdAt
+      description
+      title
+      updatedAt
+      userId
+    }
   }
 `;

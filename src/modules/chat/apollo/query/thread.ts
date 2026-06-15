@@ -31,6 +31,24 @@ export const GET_USER_THREADS_QUERY: TypedDocumentNode<
   }
 `;
 
+export const GET_THREAD_QUERY: TypedDocumentNode<
+  {
+    getThread: Thread;
+  },
+  { id: string }
+> = gql`
+  query GetThread($id: String!) {
+    getThread(id: $id) {
+      _id
+      createdAt
+      description
+      title
+      updatedAt
+      userId
+    }
+  }
+`;
+
 export const GET_USER_THREAD_MESSAGES_QUERY: TypedDocumentNode<
   {
     getThreadMessages: PaginatedResponse<Message>;
@@ -68,7 +86,6 @@ export const GET_USER_THREAD_MESSAGES_QUERY: TypedDocumentNode<
           userId
           userChoice
           timeSpent
-          generationTime
         }
         agentEvents {
           ... on LLMStreamingEvent {
