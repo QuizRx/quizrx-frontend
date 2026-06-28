@@ -1,0 +1,56 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+const ALLOWED_PREFIXES = [
+  "/auth/login",
+  "/chat",
+  "/about-us",
+  "/contact",
+  "/privacy-policy",
+  "/cookies-policy",
+];
+
+const ALLOWED_EXACT = new Set(["/"]);
+
+const LEGACY_REDIRECTS: Record<string, string> = {
+  "/dashboard": "/chat",
+  "/auth/signup": "/auth/login",
+  "/pricing": "/",
+  "/subscribe": "/",
+};
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api/") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  for (const [legacy, target] of Object.entries(LEGACY_REDIRECTS)) {
+    if (pathname === legacy || pathname.startsWith(`${legacy}/`)) {
+      const url = req.nextUrl.clone();
+      url.pathname = target;
+      return NextResponse.redirect(url, 308);
+    }
+  }
+
+  if (ALLOWED_EXACT.has(pathname)) {
+    return NextResponse.next();
+  }
+  for (const prefix of ALLOWED_PREFIXES) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      return NextResponse.next();
+    }
+  }
+
+  const url = req.nextUrl.clone();
+  url.pathname = "/";
+  return NextResponse.redirect(url, 308);
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+};

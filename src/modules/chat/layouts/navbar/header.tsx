@@ -1,40 +1,46 @@
 "use client";
-import NavBreadCrumbs from "@/core/components/shared/nav/navigation-bread-crumbs";
-import { SidebarTrigger } from "@/core/components/ui/sidebar";
-import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
-import { Link, Map } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { NotificationIndicator } from "@/core/layouts/dashboard/nav/notification";
+import { Menu } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/core/components/ui/button";
+import { ProjectLogo } from "@/core/components/ui/logo";
 import { NavUser } from "@/core/layouts/dashboard/nav/user";
 import { useAuth } from "@/core/providers/auth";
-import { Button } from "@/core/components/ui/button";
+import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
 
 const ChatNavHeader = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const { toggleChatSidebar } = useChatSidebar();
-  const pathname = usePathname();
-
-  // Check if user is admin
 
   return (
-    <header className="flex flex-row h-14 w-full bg-white/10  max-md:px-2 pr-6 items-center justify-between border-b  border-zinc-200 backdrop-blur-2xl sticky top-0 z-49 ">
-      <section className="flex flex-row gap-2 max-md:gap-1 items-center">
-        <SidebarTrigger className="" />
-        <NavBreadCrumbs />
+    <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-zinc-200/70 bg-[var(--background)]/80 px-4 backdrop-blur-md md:px-6">
+      <section className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleChatSidebar}
+          aria-label="Toggle chat history"
+          className="text-[var(--primary)]"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <Link
+          href="/chat"
+          className="flex items-center gap-2 text-lg font-semibold text-[var(--primary)]"
+        >
+          <ProjectLogo size={26} />
+        </Link>
       </section>
-      <section className="flex flex-row gap-4 max-md:gap-1 items-center">
-        {/* Chat History Trigger Button */}
-        {pathname === "/dashboard" && (
-          <Button
-            variant={"link"}
-            onClick={toggleChatSidebar}
-            className="text-black"
-            size={"icon"}
-          >
-            <Map />
-          </Button>
-        )}
-        <NotificationIndicator />
+
+      <section className="flex items-center gap-3">
+        <Link
+          href="/about-us"
+          className="hidden text-sm font-medium text-zinc-700 transition-colors hover:text-[var(--primary)] md:inline-flex"
+        >
+          About
+        </Link>
+        <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+          Beta
+        </span>
         <NavUser
           user={{
             name: user?.name || "",

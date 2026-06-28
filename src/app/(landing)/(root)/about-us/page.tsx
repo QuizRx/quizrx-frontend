@@ -1,581 +1,223 @@
 "use client";
 
-import { Check, ArrowRight, Mail } from "lucide-react";
+import Link from "next/link";
 import { motion } from "motion/react";
-import { useRouter } from "next/navigation";
-import { Badge } from "@/core/components/ui/badge";
-import { Button } from "@/core/components/ui/button";
-import { Input } from "@/core/components/ui/input";
-import { Card, CardContent } from "@/core/components/ui/card";
 import {
-  zoomInAnimation,
-  zoomUpAnimation,
-  staggerUpAnimation,
-} from "@/core/utils/animations/motion";
-import { useState } from "react";
-import Image from "next/image";
+  ArrowRight,
+  Bone,
+  ClipboardCheck,
+  Compass,
+  HeartPulse,
+  MessageSquareHeart,
+  Sparkles,
+} from "lucide-react";
+import { Button } from "@/core/components/ui/button";
+
+const principles = [
+  {
+    icon: ClipboardCheck,
+    title: "Clinician-authored content",
+    description:
+      "Every chain in this beta was written and reviewed by a clinician. The model does not invent questions - it only navigates the chain you pick.",
+  },
+  {
+    icon: Sparkles,
+    title: "Deterministic by design",
+    description:
+      "Same chain, same question, same answer - so we can measure quality and you can study without surprises.",
+  },
+  {
+    icon: MessageSquareHeart,
+    title: "Feedback in the loop",
+    description:
+      "Thumbs up / down and a free-text box on every question. Your notes go straight to the people building QuizRx.",
+  },
+];
+
+const chains = [
+  "Calcium & Bone Physiology",
+  "Osteoporosis",
+  "Osteomalacia",
+  "Hypercalcaemia",
+  "Hypocalcaemia",
+  "Primary Hyperparathyroidism",
+  "Paget's Disease",
+  "Osteogenesis Imperfecta",
+  "Renal Osteodystrophy",
+];
 
 export default function AboutUsPage() {
-  const { push } = useRouter();
-  const [email, setEmail] = useState("");
-
-  const metrics = [
-    {
-      number: "500+",
-      label: "Users who've signed up or tested the platform",
-    },
-    {
-      number: "10,000+",
-      label: "Solved questions in our database",
-    },
-    {
-      number: "15+",
-      label: "Number of focused medical subtopics",
-    },
-  ];
-
-  const features = [
-    {
-      icon: "💎",
-      title: "Smart Learning",
-      description:
-        "Smart learning with personalized quiz logic designed to reinforce knowledge through spaced repetition and cognitive recall",
-    },
-    {
-      icon: "💎",
-      title: "Clinical Relevance",
-      description:
-        "Clinical relevance first, every question is carefully curated with medical accuracy and exam-readiness in mind",
-    },
-    {
-      icon: "💎",
-      title: "Modular Topics",
-      description:
-        "Modular medical topics that break down complex subjects into digestible, focused learning modules",
-    },
-    {
-      icon: "💎",
-      title: "Interactive Learning",
-      description:
-        "Interactive learning through smart quizzes that adapt to your learning pace and identify knowledge gaps",
-    },
-  ];
-
-  const teamMembers = [
-    {
-      name: "Dr. Barry",
-      title: "CEO",
-      image: "/modules/avatar/alessandra.webp",
-    },
-    {
-      name: "Dr. Smith",
-      title: "CTO",
-      image: "/modules/avatar/lydia.webp",
-    },
-    {
-      name: "Dr. Johnson",
-      title: "Medical Director",
-      image: "/modules/avatar/alessandra.webp",
-    },
-  ];
-
-  const testimonials = [
-    {
-      title: "Game Changer!",
-      quote:
-        "Quiz Rx transformed the way we assess our medical exams. The AI-driven insights are invaluable.",
-      author: "Dr. Sarah Wilson",
-      role: "Medical Student",
-      avatar: "/modules/avatar/alessandra.webp",
-    },
-    {
-      title: "Incredible Platform",
-      quote:
-        "The personalized learning approach helped me master endocrinology concepts I struggled with for months.",
-      author: "Dr. Michael Chen",
-      role: "Resident",
-      avatar: "/modules/avatar/lydia.webp",
-    },
-    {
-      title: "Best Study Tool",
-      quote:
-        "Finally, a platform that understands how medical students actually learn. Highly recommended!",
-      author: "Dr. Emily Rodriguez",
-      role: "Medical Student",
-      avatar: "/modules/avatar/alessandra.webp",
-    },
-  ];
-
-  const blogPosts = [
-    {
-      title: "Latest In Endocrinology",
-      description:
-        "Quiz Rx is redefining how future healthcare professionals prepare, revise, and master complex medical topics - starting with endocrinology.",
-      image: "/questions/endo.svg",
-      category: "Endocrinology",
-    },
-    {
-      title: "Better ways of exam preparation",
-      description:
-        "Discover innovative study strategies that help medical students excel in their exams through active learning and spaced repetition.",
-      image: "/questions/neuro.svg",
-      category: "Study Tips",
-    },
-    {
-      title: "Latest research findings in Thyroid Gland",
-      description:
-        "Stay updated with the latest research and clinical findings in thyroid gland disorders and treatments.",
-      image: "/questions/endo.svg",
-      category: "Research",
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <section className="pt-32 pb-20">
-        <div className="max-w-7xl mx-auto py-10 px-4 md:px-16 bg-[#EFF1FACC] rounded-3xl">
-          {/* Two Column Layout */}
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16"
-          >
-            {/* Left Column - Title */}
-            <motion.div variants={zoomUpAnimation}>
-              <h1 className="text-3xl md:text-4xl text-gray-900 leading-tight">
-                Empowering Medical Mastery, One Quiz at a Time
-              </h1>
-            </motion.div>
-
-            {/* Right Column - Description */}
-            <motion.div
-              variants={zoomUpAnimation}
-              className="flex items-center"
-            >
-              <p className="text-gray-600 leading-relaxed">
-                Quiz Rx is redefining how future healthcare professionals
-                prepare, revise, and master complex medical topics — starting
-                with endocrinology.
-              </p>
-            </motion.div>
-          </motion.div>
-
-          {/* Hero Image */}
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-            className="relative w-full h-[550px] rounded-3xl overflow-hidden shadow-2xl"
-          >
-            <Image
-              src="/images/about-us.png"
-              alt="Medical professionals collaborating"
-              fill
-              className="object-cover"
-              priority
+    <div className="min-h-screen w-full bg-[var(--background)] text-zinc-900">
+      <section className="mx-auto max-w-6xl px-6 pb-16 pt-32 md:pt-40">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_320px] md:items-center"
+        >
+          <div className="space-y-6">
+            <span
+              aria-hidden
+              className="inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
             />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* About QuizRx Section */}
-      <section className="py-20 bg-gray-50">
-        <div
-          className="max-w-7xl mx-auto px-4 py-10 sm:px-6 lg:px-8 rounded-3xl overflow-hidden"
-          style={{
-            backgroundImage: "url('/background/blur.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <div className="border border-white bg-white/20 rounded-3xl p-10 pb-0 mb-12">
-            <motion.div
-              initial="hidden"
-              animate="show"
-              variants={zoomInAnimation}
-              className="mb-12"
-            >
-              <Badge
-                variant="outline"
-                className="mb-6 bg-white text-gray-600 border-gray-200 px-4 py-1 rounded-full"
-              >
-                About QuizRx
-              </Badge>
-              <h2 className="text-2xl md:text-4xl text-gray-900 mb-8 max-w-4xl">
-                Quiz Rx began with a simple goal: to make medical learning more
-                engaging, effective, and accessible.
-              </h2>
-
-              {/* Description Card */}
-              <motion.div
-                variants={zoomUpAnimation}
-                className="bg-white rounded-3xl p-8 px-5 shadow-lg"
-              >
-                <p className="text-base md:text-lg text-gray-700 leading-relaxed">
-                  As students ourselves, we struggled to find platforms that
-                  merged real medical depth with active learning. Traditional
-                  PDFs and passive content weren't enough. So we built Quiz Rx —
-                  a platform focused on interactive learning through smart
-                  quizzes and modular medical topics.
-                  <br />
-                  <br />
-                  Starting with endocrinology, our platform is rapidly expanding
-                  into other specialties, supporting learners from pre-clinical
-                  years to board prep.
-                </p>
-              </motion.div>
-            </motion.div>
-          </div>
-
-          {/* Metrics */}
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={staggerUpAnimation}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {metrics.map((metric, index) => (
-              <motion.div
-                key={index}
-                variants={staggerUpAnimation}
-                className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 text-center border border-white/20"
-              >
-                <div className="text-4xl md:text-5xl text-gray-900 mb-4">
-                  {metric.number}
-                </div>
-                <p className="text-gray-700 text-sm md:text-base leading-relaxed">
-                  {metric.label}
-                </p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Discover What Sets Us Apart Section */}
-      <section className="py-20 bg-gradient-to-br from-blue-50/30 to-purple-50/20">
-        <div className="max-w-7xl mx-auto px-4 py-10 sm:px-6 lg:px-8 bg-[#EFF1FACC] rounded-3xl">
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-            className="text-center mb-16"
-          >
-            <Badge
-              variant="outline"
-              className="mb-6 bg-white text-gray-600 border-white px-4 py-1 rounded-full"
-            >
-              The Difference
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl text-gray-900">
-              Discover What Sets Us Apart
-            </h2>
-          </motion.div>
-
-          {/* Grid Layout with centered image */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-            {/* Left Column - First 2 features */}
-            <motion.div
-              initial="hidden"
-              animate="show"
-              variants={staggerUpAnimation}
-              className="space-y-8"
-            >
-              {features.slice(0, 2).map((feature, index) => {
-                // Split description to highlight the first two words in blue
-                const words = feature.description.split(" ");
-                const titleText = words.slice(0, 2).join(" ");
-                const restText = " " + words.slice(2).join(" ");
-
-                return (
-                  <motion.div
-                    key={index}
-                    variants={staggerUpAnimation}
-                    className="bg-white rounded-3xl p-6"
-                  >
-                    <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
-                      <span className="text-white text-2xl">
-                        {feature.icon}
-                      </span>
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed">
-                      <span className="text-blue-600">{titleText}</span>
-                      {restText}
-                    </p>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-
-            {/* Center Column - Image */}
-            <motion.div
-              initial="hidden"
-              animate="show"
-              variants={zoomInAnimation}
-              className="relative h-[600px] rounded-3xl overflow-hidden shadow-2xl"
-            >
-              <Image
-                src="/images/woman-laptop.png"
-                alt="Medical student learning"
-                fill
-                className="object-cover"
-              />
-            </motion.div>
-
-            {/* Right Column - Last 2 features */}
-            <motion.div
-              initial="hidden"
-              animate="show"
-              variants={staggerUpAnimation}
-              className="space-y-8"
-            >
-              {features.slice(2, 4).map((feature, index) => {
-                // Split description to highlight the first two words in blue
-                const words = feature.description.split(" ");
-                const titleText = words.slice(0, 2).join(" ");
-                const restText = " " + words.slice(2).join(" ");
-
-                return (
-                  <motion.div
-                    key={index + 2}
-                    variants={staggerUpAnimation}
-                    className="bg-white rounded-3xl p-6"
-                  >
-                    <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
-                      <span className="text-white text-2xl">
-                        {feature.icon}
-                      </span>
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed">
-                      <span className="text-blue-600">{titleText}</span>
-                      {restText}
-                    </p>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Meet the Experts Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-            className="text-center mb-16"
-          >
-            <Badge
-              variant="outline"
-              className="mb-4 bg-white text-gray-600 border-gray-200"
-            >
-              Team
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-              Meet the experts behind QuizRx
-            </h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={staggerUpAnimation}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {teamMembers.map((member, index) => (
-              <motion.div
-                key={index}
-                variants={staggerUpAnimation}
-                className="text-center"
-              >
-                <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full mx-auto mb-6 flex items-center justify-center">
-                  <span className="text-4xl">👨‍⚕️</span>
-                </div>
-                <Card className="bg-white shadow-lg">
-                  <CardContent className="p-6 text-center">
-                    <div className="flex items-center justify-center mb-4">
-                      <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
-                        <span className="text-white font-bold text-sm">R</span>
-                      </div>
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">
-                      {member.name}
-                    </h3>
-                    <p className="text-gray-600 text-sm">{member.title}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-            className="text-center mb-16"
-          >
-            <Badge
-              variant="outline"
-              className="mb-4 bg-white text-gray-600 border-gray-200"
-            >
-              Testimonials
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-              What Our Customers Say
-            </h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={staggerUpAnimation}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                variants={staggerUpAnimation}
-                className="bg-white rounded-2xl p-8 shadow-lg"
-              >
-                <h3 className="font-bold text-gray-900 mb-4">
-                  {testimonial.title}
-                </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  "{testimonial.quote}"
-                </p>
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mr-4">
-                    <span className="text-lg">👤</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {testimonial.author}
-                    </p>
-                    <p className="text-gray-600 text-sm">{testimonial.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Navigation Arrow */}
-          <div className="flex justify-center mt-8">
-            <Button variant="outline" className="rounded-full p-3">
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Blog Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-            className="text-center mb-16"
-          >
-            <Badge
-              variant="outline"
-              className="mb-4 bg-white text-gray-600 border-gray-200"
-            >
-              Blog
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Discover The Latest Blogs
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Stay updated with the latest in medical education, study
-              strategies and platform insights
+            <h1 className="text-4xl font-semibold leading-tight text-[var(--primary)] md:text-5xl">
+              About QuizRx
+              <span className="ml-3 inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 align-middle text-sm font-semibold">
+                Beta
+              </span>
+            </h1>
+            <p className="max-w-2xl text-base leading-relaxed text-zinc-700 md:text-lg">
+              QuizRx is a focused medical learning tool. The closed beta covers
+              one module - calcium and bone disorders - with clinician-authored
+              decision chains. We use a model only to route you through those
+              chains, never to generate clinical content.
             </p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={staggerUpAnimation}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {blogPosts.map((post, index) => (
-              <motion.div
-                key={index}
-                variants={staggerUpAnimation}
-                className="bg-white rounded-2xl overflow-hidden shadow-lg"
-              >
-                <div className="h-48 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-                  <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white text-2xl">📚</span>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <h3 className="font-bold text-gray-900 mb-3">{post.title}</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                    {post.description}
-                  </p>
-                  <Badge variant="outline" className="text-xs">
-                    {post.category}
-                  </Badge>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Free Trial CTA Section */}
-      <section className="py-20">
-        <div
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center rounded-3xl overflow-hidden py-20"
-          style={{
-            backgroundImage: "url('/background/blur.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        >
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={zoomInAnimation}
-          >
-            <Badge
-              variant="outline"
-              className="mb-4 bg-white text-gray-600 border-gray-200"
-            >
-              Free Trial
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl text-gray-900 mb-4">
-              Try it out with our 3 days free trial
-            </h2>
-            <p className="text-gray-600 mb-8">No credit card required</p>
-
-            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <Input
-                type="email"
-                placeholder="Your Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 bg-white"
-              />
+            <div className="flex flex-wrap items-center gap-3">
               <Button
-                onClick={() => push("/auth/signup")}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2"
+                asChild
+                size="lg"
+                className="rounded-full bg-[var(--primary)] px-6 hover:bg-[var(--primary)]/90"
               >
-                Try Now
+                <Link href="/auth/login">
+                  Try the beta
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="rounded-full border-[var(--primary)]/40 text-[var(--primary)] hover:bg-[var(--primary)]/5"
+              >
+                <Link href="/contact">Get in touch</Link>
               </Button>
             </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="hidden md:block"
+          >
+            <div className="rounded-3xl border border-zinc-200 bg-white/80 p-6 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
+                Beta scope
+              </p>
+              <p className="mt-2 text-lg font-medium text-zinc-800">
+                One module. Nine chains. Live now.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm text-zinc-600">
+                <li className="flex items-center gap-2">
+                  <Bone className="h-4 w-4 text-[var(--primary)]" />
+                  Calcium &amp; Bone disorders
+                </li>
+                <li className="flex items-center gap-2">
+                  <HeartPulse className="h-4 w-4 text-[var(--primary)]" />
+                  Clinician-reviewed answers
+                </li>
+                <li className="flex items-center gap-2">
+                  <Compass className="h-4 w-4 text-[var(--primary)]" />
+                  No LLM-generated questions
+                </li>
+              </ul>
+            </div>
           </motion.div>
+        </motion.div>
+      </section>
+
+      <section className="border-y border-zinc-200/70 bg-white/60 py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-2xl font-semibold text-[var(--primary)]">
+            How we built it
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-700 md:text-base">
+            Passive PDFs and infinite question banks were never quite right for
+            us. QuizRx narrows things down: pick a chain, work through
+            decision points written by someone who actually treats these
+            patients, and tell us what landed. The beta is small on purpose.
+          </p>
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {principles.map((point) => (
+              <div
+                key={point.title}
+                className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+              >
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-amber,#E0B16A)]/30 text-[var(--primary)]">
+                  <point.icon className="h-5 w-5" />
+                </span>
+                <h3 className="mt-4 text-lg font-medium text-zinc-900">
+                  {point.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                  {point.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_1fr] md:items-center">
+          <div>
+            <span
+              aria-hidden
+              className="inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
+            />
+            <h2 className="mt-4 text-2xl font-semibold text-[var(--primary)] md:text-3xl">
+              What's in this module
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-700 md:text-base">
+              Nine pre-authored chains, roughly 234 decision points, all
+              tagged to calcium and bone. The list will grow with the next
+              module - but only after this one is solid.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-zinc-200 bg-white/80 p-6 shadow-sm">
+            <ul className="grid grid-cols-1 gap-2 text-sm text-zinc-700 sm:grid-cols-2">
+              {chains.map((chain) => (
+                <li
+                  key={chain}
+                  className="flex items-start gap-2 rounded-xl bg-[var(--primary)]/5 px-3 py-2"
+                >
+                  <span
+                    aria-hidden
+                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-amber,#E0B16A)]"
+                  />
+                  <span>{chain}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pb-24">
+        <div className="rounded-3xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-8 md:p-12">
+          <h2 className="text-2xl font-semibold text-[var(--primary)]">
+            Help us shape what comes next
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm text-zinc-700 md:text-base">
+            Spotted a question that wasn't great? Have a module you'd like to
+            see next? The team reads every message during the beta.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button
+              asChild
+              className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+            >
+              <Link href="/contact">Send feedback</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-full border-[var(--primary)]/40 text-[var(--primary)] hover:bg-[var(--primary)]/10"
+            >
+              <Link href="/privacy-policy">Privacy notice</Link>
+            </Button>
+          </div>
         </div>
       </section>
     </div>

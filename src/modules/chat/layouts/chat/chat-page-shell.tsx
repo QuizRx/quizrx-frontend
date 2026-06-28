@@ -1,21 +1,25 @@
 "use client";
 
-import { ChatInput } from "@/modules/chat/layouts/chat/chat-input";
-import { WelcomeHeader } from "@/modules/chat/layouts/chat/welcome-header";
+import { ArrowUp, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/core/components/ui/button";
+import { toast } from "@/core/hooks/use-toast";
+import { cn } from "@/core/lib/utils";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
-import { useEffect, useRef } from "react";
-import { useChat } from "@/modules/chat/store/chat-store";
-import { useSplitView } from "@/modules/chat/store/split-view-store";
-import { ChatLayout } from "@/modules/chat/layouts/chat/chat";
-import AvatarChat from "@/modules/chat/layouts/chat/avatar-chat";
-import { useAvatarStore } from "@/modules/chat/store/avatar-store";
+import {
+  findChainById,
+  TopicDropdown,
+} from "@/modules/extraction-quiz";
+import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
+import { useExtractionQuiz } from "@/modules/extraction-quiz/hooks/use-extraction-quiz";
+import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+import {
+  useChainPoolLoading,
+  useChainPoolWarmedAt,
+} from "@/modules/extraction-quiz/store/chain-pool-store";
+import { WelcomeHeader } from "./welcome-header";
 
 type ChatPageShellProps = {
-  /**
-   * If true, render the welcome header even when the in-memory chat is empty.
-   * The /dashboard route uses this; the /dashboard/chat/[id] route does not so
-   * that loading a saved thread never flashes the welcome screen.
-   */
   showWelcomeWhenEmpty?: boolean;
 };
 
@@ -23,74 +27,196 @@ export function ChatPageShell({
   showWelcomeWhenEmpty = false,
 }: ChatPageShellProps) {
   const { isChatSidebarOpen } = useChatSidebar();
-  const { isChatStarted, messages } = useChat();
-  const { isReviewMode } = useSplitView();
+  const entries = useExtractionQuizStore((s) => s.entries);
+  const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
+  const setSelectedChainId = useExtractionQuizStore(
+    (s) => s.setSelectedChainId
+  );
+  const appendUserPrompt = useExtractionQuizStore((s) => s.appendUserPrompt);
+  const isFetching = useExtractionQuizStore((s) => s.isFetching);
+  const { fetchQuestion, warmChain } = useExtractionQuiz();
+  const isWarmingPool = useChainPoolLoading(selectedChainId);
+  const poolWarmedAt = useChainPoolWarmedAt(selectedChainId);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { isAvatarVisible, hideAvatar } = useAvatarStore();
+  const [draft, setDraft] = useState("");
 
   useEffect(() => {
-    if (messages.length > 0 && !isReviewMode) {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop =
-          scrollContainerRef.current.scrollHeight;
-      }
-
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-      }
+    if (entries.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, isReviewMode]);
+  }, [entries.length, isFetching]);
 
-  const shouldRenderChatLayout = isChatStarted || !showWelcomeWhenEmpty;
+  // Kick off (or top up) the content-aware pool for the selected chain.
+  // warmChain is a no-op when the pool is already loaded or in flight, so
+  // it's safe to fire on every selection change.
+  useEffect(() => {
+    if (!selectedChainId) return;
+    void warmChain(selectedChainId);
+  }, [selectedChainId, warmChain]);
+
+  const hasEntries = entries.length > 0;
+  const shouldShowWelcome = showWelcomeWhenEmpty && !hasEntries;
+
+  const runPrompt = async (prompt: string) => {
+    const text = prompt.trim();
+    if (!text || isFetching) return;
+    if (!selectedChainId) {
+      toast({
+        title: "Pick a topic",
+        description:
+          "Choose a topic from the Explore Topics dropdown to begin.",
+      });
+      return;
+    }
+    appendUserPrompt(text);
+    await fetchQuestion(selectedChainId, { userPrompt: text });
+  };
+
+  const handleSend = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft("");
+    await runPrompt(text);
+  };
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden">
+    <div className="relative flex h-full flex-col overflow-hidden">
       <div
-        className={`flex flex-col flex-1 min-h-0 transition-all duration-500 ${
-          isChatSidebarOpen ? "lg:pr-[300px]" : ""
-        }`}
+        className={cn(
+          "flex flex-1 flex-col min-h-0 transition-all duration-500",
+          isChatSidebarOpen ? "lg:pl-[300px]" : ""
+        )}
       >
         <div
           ref={scrollContainerRef}
-          className={`flex-1 overflow-x-hidden px-2 pt-2 min-h-0 ${
-            isReviewMode ? "overflow-hidden" : "overflow-y-auto"
-          }`}
+          className="flex-1 overflow-x-hidden overflow-y-auto px-2 pt-2 min-h-0"
           style={{
             paddingBottom:
-              "max(100px, calc(80px + env(safe-area-inset-bottom, 0px)))",
+              "max(120px, calc(96px + env(safe-area-inset-bottom, 0px)))",
           }}
         >
-          <div className="flex flex-col items-center overflow-x-hidden">
-            {shouldRenderChatLayout ? (
-              <div
-                className={`w-full ${
-                  isReviewMode ? "h-full" : "max-w-5xl"
-                } mx-auto pb-4`}
-              >
-                <AvatarChat isOpen={isAvatarVisible} onClose={hideAvatar} />
-                <ChatLayout />
-                {!isReviewMode && <div ref={messagesEndRef} />}
-              </div>
-            ) : (
-              <WelcomeHeader />
-            )}
-          </div>
+          {shouldShowWelcome ? (
+            <WelcomeHeader
+              selectedChainId={selectedChainId}
+              onSelectChain={setSelectedChainId}
+              onPrompt={runPrompt}
+              isBusy={isFetching}
+            />
+          ) : (
+            <ChatThreadView />
+          )}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      <div
-        className={`absolute bottom-0 left-0 right-0 backdrop-blur-sm px-2 md:px-10 pb-2 pt-2 z-50 transition-all duration-500 ${
-          isChatSidebarOpen ? "lg:right-[300px]" : ""
-        }`}
-        style={{
-          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))",
-        }}
-      >
-        <div className="w-full max-w-5xl mx-auto">
-          <ChatInput className="w-full" />
+      {!shouldShowWelcome && (
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
+            isChatSidebarOpen ? "lg:pl-[316px]" : ""
+          )}
+          style={{
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
+          }}
+        >
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-xs text-zinc-500">
+                {findChainById(selectedChainId)?.label ??
+                  "No topic selected yet"}
+                {selectedChainId && isWarmingPool && !poolWarmedAt && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Indexing questions
+                  </span>
+                )}
+              </span>
+              <TopicDropdown
+                selectedChainId={selectedChainId}
+                onSelectChain={setSelectedChainId}
+              />
+            </div>
+            <div className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-white p-2">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Ask me to generate questions or test you."
+                rows={1}
+                disabled={isFetching}
+                className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
+              />
+              <Button
+                size="icon"
+                onClick={handleSend}
+                disabled={isFetching || !draft.trim()}
+                aria-label="Send"
+                className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+              >
+                {isFetching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function ChatThreadView() {
+  const entries = useExtractionQuizStore((s) => s.entries);
+  const isFetching = useExtractionQuizStore((s) => s.isFetching);
+
+  return (
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-2 pt-4 sm:px-4">
+      {entries.map((entry) => {
+        if (entry.kind === "user-prompt") {
+          return (
+            <div key={entry.id} className="flex justify-end mb-4">
+              <div className="max-w-[85%] rounded-2xl bg-[var(--primary)] px-4 py-2 text-sm text-white shadow-sm whitespace-pre-wrap">
+                {entry.content}
+              </div>
+            </div>
+          );
+        }
+        if (entry.kind === "system") {
+          return (
+            <div key={entry.id} className="flex justify-start mb-4">
+              <div className="max-w-[85%] rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">
+                {entry.content}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={entry.id} className="flex justify-start mb-4">
+            <div className="w-full max-w-[95%]">
+              <ExtractionQuestionCard attempt={entry.attempt} />
+            </div>
+          </div>
+        );
+      })}
+
+      {isFetching && (
+        <div className="flex justify-start mb-4">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
+            Fetching question...
+          </div>
+        </div>
+      )}
     </div>
   );
 }

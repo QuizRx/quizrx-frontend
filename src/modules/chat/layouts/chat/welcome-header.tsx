@@ -1,263 +1,156 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/core/components/ui/card";
-import { ProjectLogo } from "@/core/components/ui/logo";
-import { useAuth } from "@/core/providers/auth";
-import {
-  Calendar,
-  FileText,
-  LayoutGrid,
-  MessageCircleQuestion,
-} from "lucide-react";
-import { useChat } from "../../store/chat-store";
-import { Badge } from "@/core/components/ui/badge";
-import { Button } from "@/core/components/ui/button";
-import { motion } from "motion/react";
-import FormTopics from "./form-topics";
+import { ArrowUp, FileText, UserRound } from "lucide-react";
 import Link from "next/link";
-// Type definition for welcome cards
-type CardType = {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  isPrimary: boolean;
-  prompt?: string;
-  action?: () => void;
+import { useState } from "react";
+import { Button } from "@/core/components/ui/button";
+import { cn } from "@/core/lib/utils";
+import { TopicDropdown } from "@/modules/extraction-quiz";
+
+type WelcomeHeaderProps = {
+  selectedChainId: string | null;
+  onSelectChain: (chainId: string) => void;
+  onPrompt: (prompt: string) => Promise<void> | void;
+  isBusy?: boolean;
 };
 
-export const WelcomeHeader = () => {
-  const { user } = useAuth();
-  const { handleSubmit } = useChat();
-  const [openQuiz, setOpenQuiz] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+export const WelcomeHeader = ({
+  selectedChainId,
+  onSelectChain,
+  onPrompt,
+  isBusy = false,
+}: WelcomeHeaderProps) => {
+  const [draft, setDraft] = useState("");
 
-  // Check for mobile view on client side
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+  const handleSendDraft = async () => {
+    const value = draft.trim();
+    if (!value) return;
+    setDraft("");
+    await onPrompt(value);
+  };
 
-    // Initial check
-    checkMobile();
+  const handleSuggestedPrompt = async (prompt: string) => {
+    await onPrompt(prompt);
+  };
 
-    // Add event listener for window resize
-    window.addEventListener("resize", checkMobile);
+  const isFetching = isBusy;
 
-    // Cleanup
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // Card data mapping for welcome layout
-  const cardData: CardType[] = [
+  const suggestions = [
     {
       icon: FileText,
-      title: "Create",
-      description: "Curated questions based on your performance.",
-      isPrimary: true,
-      prompt: "Show me a recommended question based on my performance",
+      label: "Generate a question on this topic",
     },
     {
-      icon: LayoutGrid,
-      title: "Todays Challenge",
-      description: "A hand-picked question to test your knolwedge.",
-      isPrimary: false,
-      prompt: "What's today's Endocrinology challenge question?",
-    },
-    {
-      icon: MessageCircleQuestion,
-      title: "Quiz from Selection",
-      description: "Select a topic and a subtopic to have a personalized quiz.",
-      isPrimary: false,
-      action: () => {
-        setOpenQuiz(true);
-      },
+      icon: UserRound,
+      label: "Test me on this topic",
     },
   ];
-
-  // Preset prompt buttons
-  const presetPrompts = [
-    "Help me prepare for an upcoming test",
-    "Explain a difficult concept to me",
-    "Generate practice questions on a topic",
-    "Analyze my weak areas",
-  ];
-
-  const handleCardClick = (card: CardType) => {
-    if (card.prompt) {
-      handleSubmit(card.prompt);
-    }
-    if (card.action) {
-      card.action();
-    }
-  };
-
-  const handlePresetPromptClick = (prompt: string) => {
-    handleSubmit(prompt);
-  };
-
-  // Container animations
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
-  };
-
-  // Header animations
-  const headerVariants = {
-    hidden: { opacity: 0, y: -20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-        ease: [0.17, 0.67, 0.83, 0.67] as const,
-      },
-    },
-  };
-
-  // Card animations
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        ease: [0.17, 0.67, 0.83, 0.67] as const,
-      },
-    },
-    hover: {
-      scale: 1.03,
-      transition: { duration: 0.2 },
-    },
-    tap: {
-      scale: 0.97,
-      transition: { duration: 0.1 },
-    },
-  };
-
-  // Badge animations
-  const badgeVariants = {
-    hidden: { opacity: 0, scale: 0.8 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      transition: {
-        duration: 0.3,
-      },
-    },
-    hover: {
-      scale: 1.05,
-      transition: { duration: 0.2 },
-    },
-    tap: {
-      scale: 0.9,
-      transition: { duration: 0.1 },
-    },
-  };
 
   return (
-    <>
-      {!openQuiz && (
-        <motion.div
-          className="flex flex-col items-center w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8 py-3 sm:py-4 px-3 sm:px-4 md:px-6 lg:px-8 3xl:mt-40"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          {/* Welcome section */}
-          <div className="text-center max-w-2xl flex flex-col items-center justify-center gap-2 sm:gap-3 md:gap-4">
-            <img src="/logo/light-log.svg" className="w-7 sm:w-8 h-7 sm:h-8" />
-            <h2 className="text-base sm:text-lg md:text-xl text-zinc-400 font-medium">
-              Hi, {user?.name.split(" ")[0]}
-            </h2>
-            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-medium text-primary px-2">
-              How Can I Help You Today?
+    <section className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 md:px-6">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-[280px_1fr] md:items-start">
+        <div className="hidden md:block">
+          <img
+            src="/images/about-us.png"
+            alt="Calcium & Bone module illustration"
+            className="w-full rounded-2xl object-cover opacity-90"
+          />
+        </div>
+
+        <div className="space-y-5">
+          <div>
+            <span
+              aria-hidden
+              className="mb-3 inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
+            />
+            <h1 className="text-3xl font-semibold text-[var(--primary)] md:text-4xl">
+              Calcium &amp; Bone Module
             </h1>
-            <p className="text-muted-foreground max-w-lg mx-auto text-xs sm:text-sm px-2">
-              Let's dive into today&apos;s quiz journey. Whether you're here to
-              practice or challenge yourself, we&apos;ve got your back.
-            </p>
-            <p className="text-muted-foreground max-w-lg mx-auto text-[11px] sm:text-xs px-2">
+            <div className="mt-3 space-y-1 text-sm text-zinc-700">
+              <p>Welcome to the beta for our first module.</p>
+              <p>This beta includes content on calcium and bone disorders only.</p>
+              <p>
+                Ask the model to generate questions or test you on any topic
+                within this module.
+              </p>
+              <p>Your feedback will help us make QuizRx better.</p>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
               Privacy notice: QuizRx stores your account details, chat history,
               and generated questions during this closed beta. Read more in our{" "}
-              <Link href="/privacy-policy" className="text-primary underline">
+              <Link href="/privacy-policy" className="text-[var(--primary)] underline">
                 privacy notice
               </Link>
               .
             </p>
           </div>
 
-          {/* Information cards */}
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 w-full max-w-3xl mt-4 sm:mt-6 min-w-0"
-            variants={containerVariants}
-          >
-            {cardData.map((card, index) => (
-              <motion.div
-                key={index}
-                variants={cardVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <div
-                  className={`
-                shadow-none border p-3 sm:p-4 border-zinc-200 rounded-lg h-full
-                ${
-                  card.isPrimary
-                    ? "bg-gradient-to-br from-primary/80 to-primary text-white"
-                    : "bg-card hover:bg-gradient-to-br hover:from-primary/80 hover:to-primary hover:text-white"
-                } cursor-pointer group`}
-                  onClick={() => handleCardClick(card)}
-                >
-                  <card.icon className="h-5 w-5 mb-2" />
-                  <CardTitle className="text-sm sm:text-base md:text-lg mb-1">
-                    {card.title}
-                  </CardTitle>
-                  <div>
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        card.isPrimary
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground group-hover:text-primary-foreground"
-                      }`}
-                    >
-                      {card.description}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.div>
-      )}
-      {openQuiz && (
-        <motion.div
-          className="flex flex-col items-center w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8 py-3 sm:py-4 px-3 sm:px-4 md:px-6 lg:px-8 3xl:mt-40"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          <Button
-            className="self-start mb-2 px-2 sm:px-3 py-1 text-sm transition"
-            onClick={() => setOpenQuiz(false)}
-          >
-            ← Back
-          </Button>
+          <div className="rounded-3xl border border-zinc-200 bg-white/95 p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[var(--primary)]">
+                AI Chat
+              </h2>
+              <TopicDropdown
+                selectedChainId={selectedChainId}
+                onSelectChain={onSelectChain}
+              />
+            </div>
 
-          <FormTopics />
-        </motion.div>
-      )}
-    </>
+            <div className="rounded-2xl border border-zinc-200 bg-white">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendDraft();
+                  }
+                }}
+                placeholder="Ask me to generate questions or test you."
+                rows={3}
+                disabled={isFetching}
+                className="w-full resize-none rounded-2xl bg-transparent p-4 text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
+              />
+              <div className="flex items-center justify-end px-3 pb-3">
+                <button
+                  type="button"
+                  onClick={handleSendDraft}
+                  disabled={isFetching || !draft.trim()}
+                  aria-label="Send"
+                  className={cn(
+                    "inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)] text-white transition-opacity",
+                    (isFetching || !draft.trim()) && "opacity-60"
+                  )}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-3 text-sm font-medium text-zinc-600">
+              Suggested Prompts
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {suggestions.map((s) => (
+                <Button
+                  key={s.label}
+                  variant="outline"
+                  disabled={isFetching}
+                  onClick={() => handleSuggestedPrompt(s.label)}
+                  className="h-auto justify-start gap-3 rounded-2xl border-zinc-200 bg-white px-4 py-3 text-left text-sm font-normal text-zinc-700 hover:border-[var(--primary)] hover:bg-[var(--primary)]/5"
+                >
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-amber,#E0B16A)]/30 text-[var(--primary)]">
+                    <s.icon className="h-4 w-4" />
+                  </span>
+                  <span>{s.label}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 };

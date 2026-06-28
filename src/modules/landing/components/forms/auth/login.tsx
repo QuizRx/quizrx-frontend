@@ -58,12 +58,8 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const decideNextRoute = async (idToken: string) => {
-    const { data: dataUser } = await getUser({ variables: { idToken } });
-    if (dataUser !== null && dataUser.user.status === "ACTIVE") {
-      signIn(idToken, "/dashboard");
-    } else {
-      signIn(idToken, "/subscribe");
-    }
+    // Beta: subscription gating is removed; everyone goes to /chat after login.
+    signIn(idToken, "/chat");
   };
 
   const { handleAuthError } = useAuthErrorHandler();
@@ -249,16 +245,17 @@ export function LoginForm() {
           </motion.form>
         </Form>
         <motion.div
-          className="text-center text-sm text-gray-400"
+          className="text-center text-xs text-muted-foreground"
           variants={staggerUpAnimation}
         >
-          Don&apos;t have an account?{" "}
+          QuizRx is in closed beta. New access is invite-only - email{" "}
           <Link
-            href="/auth/signup"
+            href="/contact"
             className="underline underline-offset-4 text-primary"
           >
-            Sign up
-          </Link>
+            the team
+          </Link>{" "}
+          to request a seat.
         </motion.div>
       </motion.div>
     </div>
