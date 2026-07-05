@@ -180,7 +180,7 @@ export function FeedbackForm({
           <SelectTrigger id="feedback-category" className="w-full">
             <SelectValue placeholder="Pick a category" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-70">
             {categories.map((c) => (
               <SelectItem key={c.value} value={c.value}>
                 {c.label}

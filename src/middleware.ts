@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const ALLOWED_PREFIXES = [
   "/auth/login",
   "/chat",
+  "/admin",
   "/about-us",
   "/contact",
   "/privacy-policy",

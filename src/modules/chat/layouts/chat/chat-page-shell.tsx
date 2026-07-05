@@ -84,9 +84,20 @@ export function ChatPageShell({
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 bg-white/55"
+      />
+      <img
+        aria-hidden
+        src="/chatBG.png"
+        alt=""
+        className="pointer-events-none absolute bottom-0 left-72 z-1 h-auto w-[280px] max-w-[40vw] select-none object-contain sm:w-[360px] md:w-[440px] lg:w-[520px]"
+      />
+
+      <div
         className={cn(
-          "flex flex-1 flex-col min-h-0 transition-all duration-500",
-          isChatSidebarOpen ? "lg:pl-[300px]" : ""
+          "relative z-10 flex flex-1 flex-col min-h-0 transition-all duration-500",
+          isChatSidebarOpen ? "lg:pl-[300px]" : "",
         )}
       >
         <div
@@ -114,8 +125,8 @@ export function ChatPageShell({
       {!shouldShowWelcome && (
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
-            isChatSidebarOpen ? "lg:pl-[316px]" : ""
+            "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
+            isChatSidebarOpen ? "lg:pl-[316px]" : "",
           )}
           style={{
             paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
