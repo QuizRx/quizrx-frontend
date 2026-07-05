@@ -35,6 +35,12 @@ export type ExtractionEntry =
       kind: "system";
       content: string;
       createdAt: number;
+    }
+  | {
+      id: string;
+      kind: "assistant";
+      content: string;
+      createdAt: number;
     };
 
 export type LoadSessionPayload = {
@@ -60,6 +66,7 @@ interface ExtractionQuizActions {
   setSelectedChainId: (chainId: string | null) => void;
   appendUserPrompt: (content: string) => void;
   appendSystem: (content: string) => void;
+  appendAssistant: (content: string) => void;
   appendAttempt: (
     chainId: string,
     question: ExtractionQuestionData
@@ -160,6 +167,19 @@ export const useExtractionQuizStore = create<
               {
                 id: generateId(),
                 kind: "system",
+                content,
+                createdAt: Date.now(),
+              },
+            ],
+          })),
+
+        appendAssistant: (content) =>
+          set((state) => ({
+            entries: [
+              ...state.entries,
+              {
+                id: generateId(),
+                kind: "assistant",
                 content,
                 createdAt: Date.now(),
               },

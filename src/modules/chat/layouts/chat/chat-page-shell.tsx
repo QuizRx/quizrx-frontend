@@ -14,6 +14,10 @@ import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/ext
 import { useExtractionQuiz } from "@/modules/extraction-quiz/hooks/use-extraction-quiz";
 import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import {
+  classifySmallTalk,
+  smallTalkReply,
+} from "@/modules/extraction-quiz/utils/small-talk";
+import {
   useChainPoolLoading,
   useChainPoolWarmedAt,
 } from "@/modules/extraction-quiz/store/chain-pool-store";
@@ -33,6 +37,7 @@ export function ChatPageShell({
     (s) => s.setSelectedChainId
   );
   const appendUserPrompt = useExtractionQuizStore((s) => s.appendUserPrompt);
+  const appendAssistant = useExtractionQuizStore((s) => s.appendAssistant);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
   const { fetchQuestion, warmChain } = useExtractionQuiz();
   const isWarmingPool = useChainPoolLoading(selectedChainId);
@@ -62,6 +67,25 @@ export function ChatPageShell({
   const runPrompt = async (prompt: string) => {
     const text = prompt.trim();
     if (!text || isFetching) return;
+
+    // Small-talk ("hi", "thanks", "bye", "what can you do") gets a conversational
+    // reply instead of consuming a question. Handled before the topic check so a
+    // greeting works even when no topic is selected yet.
+    const smallTalkKind = classifySmallTalk(text);
+    if (smallTalkKind) {
+      const isFirstTurn = !entries.some(
+        (e) => e.kind === "assistant" || e.kind === "attempt"
+      );
+      appendUserPrompt(text);
+      appendAssistant(
+        smallTalkReply(smallTalkKind, {
+          isFirstTurn,
+          topicLabel: findChainById(selectedChainId)?.label ?? null,
+        })
+      );
+      return;
+    }
+
     if (!selectedChainId) {
       toast({
         title: "Pick a topic",
@@ -205,6 +229,16 @@ function ChatThreadView() {
           return (
             <div key={entry.id} className="flex justify-start mb-4">
               <div className="max-w-[85%] rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">
+                {entry.content}
+              </div>
+            </div>
+          );
+        }
+
+        if (entry.kind === "assistant") {
+          return (
+            <div key={entry.id} className="flex justify-start mb-4">
+              <div className="max-w-[85%] rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 shadow-sm whitespace-pre-wrap">
                 {entry.content}
               </div>
             </div>
