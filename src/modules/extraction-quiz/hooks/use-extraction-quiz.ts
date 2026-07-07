@@ -283,8 +283,20 @@ export function useExtractionQuiz() {
     ]
   );
 
+  // `submitQuestionFeedback` is reused for two different intents:
+  //   1. Recording the initial answer + trap analytics (silent) — the user
+  //      just clicked an option, they didn't opt into leaving feedback.
+  //   2. Actual feedback: thumbs up/down or a free-text comment (noisy) —
+  //      the user explicitly took a feedback action and expects an ack.
+  // Callers pass `silent: true` for (1) so we skip the toast, and default
+  // to (2) so thumbs / comments still get "Thanks for the feedback".
   const submitFeedback = useCallback(
-    async (input: QuestionFeedbackInput, attemptId: string) => {
+    async (
+      input: QuestionFeedbackInput,
+      attemptId: string,
+      options?: { silent?: boolean }
+    ) => {
+      const silent = options?.silent ?? false;
       try {
         const { data } = await runSubmitFeedback({
           variables: { input: { ...input, sessionId } },
@@ -294,15 +306,23 @@ export function useExtractionQuiz() {
           throw new Error(result?.error || "Feedback failed.");
         }
         markFeedbackSubmitted(attemptId);
-        toast({
-          title: "Thanks for the feedback",
-          description: "Your response was recorded.",
-        });
+        if (!silent) {
+          toast({
+            title: "Thanks for the feedback",
+            description: "Your response was recorded.",
+          });
+        }
         return true;
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Could not submit feedback.";
-        toast({ title: "Feedback failed", description: message });
+        // Only surface failures the user explicitly triggered. Silent
+        // background submissions failing shouldn't spam a toast — the
+        // attempt is still visible in the UI and the next explicit
+        // action will retry the write.
+        if (!silent) {
+          toast({ title: "Feedback failed", description: message });
+        }
         return false;
       }
     },

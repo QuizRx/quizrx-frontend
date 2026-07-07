@@ -63,7 +63,12 @@ export function ExtractionQuestionCard({
     if (isAnswered || submitting) return;
     recordAnswer(attempt.id, index);
     setSubmitting(true);
-    await submitFeedback(buildFeedbackInput(index, null), attempt.id);
+    // Silent: this is the initial answer, not a feedback action. We still
+    // POST it so trap analytics (US-3.2) get the record, but we don't
+    // toast "Thanks for the feedback" — the user hasn't given feedback yet.
+    await submitFeedback(buildFeedbackInput(index, null), attempt.id, {
+      silent: true,
+    });
     setSubmitting(false);
   };
 

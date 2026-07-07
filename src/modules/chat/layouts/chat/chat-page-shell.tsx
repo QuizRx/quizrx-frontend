@@ -106,7 +106,7 @@ export function ChatPageShell({
   };
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden">
+    <div className="relative flex flex-col overflow-hidden h-[100vh]">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0 bg-white/55"
@@ -126,7 +126,7 @@ export function ChatPageShell({
       >
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-x-hidden overflow-y-auto px-2 pt-2 min-h-0"
+          className="flex-1 overflow-x-hidden overflow-y-auto px-2 pt-2 min-h-0 mt-12"
           style={{
             paddingBottom:
               "max(120px, calc(96px + env(safe-area-inset-bottom, 0px)))",
