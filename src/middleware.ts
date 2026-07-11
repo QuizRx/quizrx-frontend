@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const ALLOWED_PREFIXES = [
   "/auth/login",
+  "/auth/signup",
   "/chat",
   "/admin",
   "/about-us",
@@ -14,7 +15,6 @@ const ALLOWED_EXACT = new Set(["/"]);
 
 const LEGACY_REDIRECTS: Record<string, string> = {
   "/dashboard": "/chat",
-  "/auth/signup": "/auth/login",
   "/pricing": "/",
   "/subscribe": "/",
 };

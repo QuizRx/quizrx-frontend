@@ -1,7 +1,6 @@
 import { gql, TypedDocumentNode } from "@apollo/client";
 import { PaginatedParams } from "@/core/types/api/api";
 import { FeedbackCategory } from "@/modules/feedback/types/api/feedback";
-import { UserRole } from "@/modules/graph/types/api/enum";
 import type {
   AdminThreadMessagesResponse,
   AdminUsersResponse,
@@ -234,25 +233,5 @@ export const ADMIN_GET_MY_FEEDBACK_FALLBACK: TypedDocumentNode<
         prevPage
       }
     }
-  }
-`;
-
-/**
- * Single invite mutation — bulk-invite is a client-side loop over this
- * until the new backend bulk endpoint deploys.
- */
-export const ADMIN_INVITE_USER: TypedDocumentNode<
-  { inviteUser: string },
-  {
-    inviteUserInput: {
-      email: string;
-      firstName: string;
-      lastName: string;
-      role: UserRole;
-    };
-  }
-> = gql`
-  mutation AdminInviteUser($inviteUserInput: InviteUserInput!) {
-    inviteUser(inviteUserInput: $inviteUserInput)
   }
 `;

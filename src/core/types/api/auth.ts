@@ -4,7 +4,6 @@ export type CreateUserWithEmailAndPasswordInput = {
   lastName: string;
   email: string;
   password: string;
-  inviteCode: string;
 };
 
 export type DecodedJwtTokenType = {

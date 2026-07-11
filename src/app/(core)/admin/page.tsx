@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   MessageSquare,
   MessagesSquare,
-  Send,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -16,7 +15,6 @@ import {
 } from "@/core/components/ui/tabs";
 import { AdminChatsTable } from "@/modules/admin/components/admin-chats-table";
 import { AdminFeedbackTable } from "@/modules/admin/components/admin-feedback-table";
-import { AdminInvitationsForm } from "@/modules/admin/components/admin-invitations-form";
 import { AdminUsersTable } from "@/modules/admin/components/admin-users-table";
 
 export default function AdminPage() {
@@ -35,13 +33,13 @@ export default function AdminPage() {
             Admin panel
           </h1>
           <p className="text-sm text-zinc-500">
-            Manage users, browse chats, review feedback, and send invitations.
+            Manage users, browse chats, and review feedback.
           </p>
         </div>
       </header>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-xl grid-cols-3">
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" />
             Users
@@ -54,10 +52,6 @@ export default function AdminPage() {
             <MessagesSquare className="h-4 w-4" />
             Feedback
           </TabsTrigger>
-          <TabsTrigger value="invitations" className="gap-2">
-            <Send className="h-4 w-4" />
-            Invitations
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -68,9 +62,6 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="feedback">
           <AdminFeedbackTable />
-        </TabsContent>
-        <TabsContent value="invitations">
-          <AdminInvitationsForm />
         </TabsContent>
       </Tabs>
     </div>

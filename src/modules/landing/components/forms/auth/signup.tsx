@@ -4,8 +4,7 @@ import {
   signUpFormSchema,
   SignUpFormValues,
 } from "@/modules/landing/schema/sign-up";
-import { useSubscriptionStore } from "@/modules/landing/store/subscription";
-import { useMutation, useLazyQuery } from "@apollo/client";
+import { useMutation } from "@apollo/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/core/components/ui/button";
 import {
@@ -19,60 +18,36 @@ import { Input } from "@/core/components/ui/input";
 import { getFirebaseAuth } from "@/core/configs/firebase";
 import { toast } from "@/core/hooks/use-toast";
 import { cn } from "@/core/lib/utils";
-import { setCookie } from "cookies-next";
-import {
-  GoogleAuthProvider,
-  signInWithCustomToken,
-  signInWithPopup,
-} from "firebase/auth";
+import { useAuth } from "@/core/providers/auth";
+import { signInWithCustomToken } from "firebase/auth";
 import { Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
-import {
-  CREATE_USER_WITH_EMAIL_AND_PASSWORD_MUTATION,
-  CREATE_USER_WITH_GOOGLE_INVITE_MUTATION,
-} from "@/modules/landing/apollo/mutation/UserMutations";
-import { GET_USER } from "@/core/providers/user";
+import { CREATE_USER_WITH_EMAIL_AND_PASSWORD_MUTATION } from "@/modules/landing/apollo/mutation/UserMutations";
+
 export function SignupForm({
   forceEmail,
   startingName,
-  inviteCode,
 }: {
   forceEmail?: string;
   startingName?: string;
-  inviteCode?: string;
 }) {
-  const [getUser] = useLazyQuery(GET_USER, { fetchPolicy: "network-only" });
+  const { signIn } = useAuth();
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpFormSchema),
     defaultValues: {
       firstName: startingName ? startingName.split(" ")[0] : "",
       lastName: startingName ? startingName.split(" ").slice(1).join(" ") : "",
       email: forceEmail || "",
-      inviteCode: inviteCode || "",
       password: "",
     },
   });
   const [createUserWithEmailAndPasswordMutation, { loading }] = useMutation(
     CREATE_USER_WITH_EMAIL_AND_PASSWORD_MUTATION
   );
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const { subscriptionId, setStatus, setEmail } = useSubscriptionStore();
-
-  const decideNextRoute = async () => {
-    const { data: dataUser } = await getUser();
-
-    if (dataUser !== null && dataUser.user.status === "ACTIVE") {
-      router.push("/dashboard");
-    } else {
-      router.push("/subscribe");
-    }
-  };
 
   const onSubmit: SubmitHandler<SignUpFormValues> = async (data) => {
     await createUserWithEmailAndPasswordMutation({
@@ -82,7 +57,6 @@ export function SignupForm({
           lastName: data.lastName,
           email: data.email,
           password: data.password,
-          inviteCode: data.inviteCode,
         },
       },
       onCompleted: async (res) => {
@@ -91,24 +65,21 @@ export function SignupForm({
             title: "Success",
             description: "Account created successfully!",
           });
-          const customToken = res.createUserWithEmailAndPassword;
-          signInWithCustomToken(getFirebaseAuth(), customToken)
-            .then((cred) => cred.user.getIdToken())
-            .then(async (idToken) => {
-              setCookie("token", idToken);
-              setEmail(data.email);
-              setStatus("processing");
-              await decideNextRoute();
-            })
-            .catch((error) => {
-              console.error("Sign-in error:", error);
-              toast({
-                variant: "destructive",
-                title: "Sign-in Error",
-                description: "Please sign in manually.",
-              });
-              !subscriptionId && router.push("/auth/login");
+          try {
+            const cred = await signInWithCustomToken(
+              getFirebaseAuth(),
+              res.createUserWithEmailAndPassword
+            );
+            const idToken = await cred.user.getIdToken();
+            await signIn(idToken, "/chat");
+          } catch (error) {
+            console.error("Sign-in error:", error);
+            toast({
+              variant: "destructive",
+              title: "Sign-in Error",
+              description: "Account created — please sign in manually.",
             });
+          }
         }
       },
       onError: (error) => {
@@ -120,39 +91,6 @@ export function SignupForm({
         });
       },
     });
-  };
-
-  const [createUserWithGoogle] = useMutation(
-    CREATE_USER_WITH_GOOGLE_INVITE_MUTATION
-  );
-
-  const handleGoogleSignUp = () => {
-    const provider = new GoogleAuthProvider();
-    signInWithPopup(getFirebaseAuth(), provider)
-      .then(async (result) => {
-        toast({
-          title: "Google Sign-in Successful",
-          description: "You have successfully signed in with Google.",
-        });
-        const id = await result.user.getIdToken();
-        setEmail(result.user.email!);
-        return id;
-      })
-      .then(async (idToken) => {
-        setCookie("token", idToken);
-        setStatus("processing");
-        await createUserWithGoogle({
-          variables: { idToken, inviteCode: form.getValues("inviteCode") },
-        });
-        await decideNextRoute();
-      })
-      .catch((error) => {
-        toast({
-          variant: "destructive",
-          title: "Google Sign-up Error",
-          description: error.message,
-        });
-      });
   };
 
   const checkPasswordRequirements = (password: string) => [
@@ -203,7 +141,10 @@ export function SignupForm({
                 className="grid gap-2 z-10 flex-1"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, ease: [0.17, 0.67, 0.83, 0.67] as const }}
+                transition={{
+                  duration: 0.4,
+                  ease: [0.17, 0.67, 0.83, 0.67] as const,
+                }}
               >
                 <FormField
                   control={form.control}
@@ -234,7 +175,10 @@ export function SignupForm({
             className="grid gap-2 z-10"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease: [0.17, 0.67, 0.83, 0.67] as const }}
+            transition={{
+              duration: 0.4,
+              ease: [0.17, 0.67, 0.83, 0.67] as const,
+            }}
           >
             <FormField
               control={form.control}
@@ -259,42 +203,13 @@ export function SignupForm({
           </motion.div>
 
           <motion.div
-            className="grid gap-2 z-10"
+            className="grid gap-2"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{
               duration: 0.4,
               ease: [0.17, 0.67, 0.83, 0.67] as const,
             }}
-          >
-            <FormField
-              control={form.control}
-              name="inviteCode"
-              render={({ field }) => (
-                <FormItem className="w-full">
-                  <FormControl>
-                    <Input
-                      {...field}
-                      id="inviteCode"
-                      placeholder="Enter your invite code"
-                      required
-                      value={field.value || ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Invite links are single-use and expire after 14 days.
-            </p>
-          </motion.div>
-
-          <motion.div
-            className="grid gap-2"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease: [0.17, 0.67, 0.83, 0.67] as const }}
           >
             <FormField
               control={form.control}
@@ -331,7 +246,10 @@ export function SignupForm({
               <motion.pre
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: [0.17, 0.67, 0.83, 0.67] as const }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.17, 0.67, 0.83, 0.67] as const,
+                }}
                 className="bg-primary/10 text-primary w-full flex flex-col gap-2 rounded-sm p-4 text-xs"
               >
                 Make sure your password meets the following:
@@ -362,48 +280,14 @@ export function SignupForm({
           </Button>
 
           <p className="text-xs text-muted-foreground leading-5">
-            Closed beta note: by creating an account, you agree that QuizRx
-            stores your profile, chat history, and generated questions to
-            deliver and improve the beta experience. Read our{" "}
+            By creating an account, you agree that QuizRx stores your profile,
+            chat history, and generated questions to deliver and improve the
+            experience. Read our{" "}
             <Link href="/privacy-policy" className="text-primary underline">
               privacy notice
             </Link>
             .
           </p>
-
-          <motion.div
-            className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-          >
-            <span className="relative z-10 bg-background px-2 text-muted-foreground/50">
-              OR
-            </span>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Button
-              variant="outline"
-              className="w-full"
-              type="button"
-              onClick={handleGoogleSignUp}
-              disabled={!form.getValues("inviteCode")}
-            >
-              <Image
-                src="/logo/google.svg"
-                alt="Logo"
-                width={26}
-                height={26}
-                className="size-7"
-              />
-              Continue with Google
-            </Button>
-          </motion.div>
         </form>
       </Form>
 
