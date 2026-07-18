@@ -18,13 +18,13 @@ const principles = [
     icon: ClipboardCheck,
     title: "Clinician-authored content",
     description:
-      "Every chain in this beta was written and reviewed by a clinician. The model does not invent questions - it only navigates the chain you pick.",
+      "Every question in this beta was written and reviewed by a clinician, so you can trust the clinical reasoning behind each answer.",
   },
   {
     icon: Sparkles,
-    title: "Deterministic by design",
+    title: "Consistent by design",
     description:
-      "Same chain, same question, same answer - so we can measure quality and you can study without surprises.",
+      "Consistent questions and answers, so you can study without surprises while we keep raising the bar on quality.",
   },
   {
     icon: MessageSquareHeart,
@@ -34,7 +34,7 @@ const principles = [
   },
 ];
 
-const chains = [
+const moduleTopics = [
   "Calcium & Bone Physiology",
   "Osteoporosis",
   "Osteomalacia",
@@ -70,8 +70,8 @@ export default function AboutUsPage() {
             <p className="max-w-2xl text-base leading-relaxed text-zinc-700 md:text-lg">
               QuizRx is a focused medical learning tool. The closed beta covers
               one module - calcium and bone disorders - with clinician-authored
-              decision chains. We use a model only to route you through those
-              chains, never to generate clinical content.
+              questions and explanations, so every bit of clinical content comes
+              from real practitioners.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -106,7 +106,7 @@ export default function AboutUsPage() {
                 Beta scope
               </p>
               <p className="mt-2 text-lg font-medium text-zinc-800">
-                One module. Nine chains. Live now.
+                One module. Nine topics. Live now.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-zinc-600">
                 <li className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export default function AboutUsPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Compass className="h-4 w-4 text-[var(--primary)]" />
-                  No LLM-generated questions
+                  Every question written by clinicians
                 </li>
               </ul>
             </div>
@@ -134,9 +134,9 @@ export default function AboutUsPage() {
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-700 md:text-base">
             Passive PDFs and infinite question banks were never quite right for
-            us. QuizRx narrows things down: pick a chain, work through
-            decision points written by someone who actually treats these
-            patients, and tell us what landed. The beta is small on purpose.
+            us. QuizRx narrows things down: pick a topic, work through
+            questions written by someone who actually treats these patients,
+            and tell us what landed. The beta is small on purpose.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             {principles.map((point) => (
@@ -170,23 +170,23 @@ export default function AboutUsPage() {
               What's in this module
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-zinc-700 md:text-base">
-              Nine pre-authored chains, roughly 234 decision points, all
-              tagged to calcium and bone. The list will grow with the next
-              module - but only after this one is solid.
+              Nine topics covering calcium and bone, with a growing set of
+              practice questions. The list will grow with the next module - but
+              only after this one is solid.
             </p>
           </div>
           <div className="rounded-3xl border border-zinc-200 bg-white/80 p-6 shadow-sm">
             <ul className="grid grid-cols-1 gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-              {chains.map((chain) => (
+              {moduleTopics.map((topic) => (
                 <li
-                  key={chain}
+                  key={topic}
                   className="flex items-start gap-2 rounded-xl bg-[var(--primary)]/5 px-3 py-2"
                 >
                   <span
                     aria-hidden
                     className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-amber,#E0B16A)]"
                   />
-                  <span>{chain}</span>
+                  <span>{topic}</span>
                 </li>
               ))}
             </ul>

@@ -184,7 +184,7 @@ export function ChatHistorySidebar() {
                             className="rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-3 text-sm shadow-sm"
                           >
                             <p className="text-xs font-medium text-[var(--primary)]">
-                              {chain?.label ?? entry.attempt.chainId}
+                              {chain?.label ?? "Practice question"}
                             </p>
                             <p className="mt-1 line-clamp-2 text-xs text-zinc-700">
                               {entry.attempt.question.question.question}

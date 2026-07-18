@@ -232,7 +232,7 @@ export function useExtractionQuiz() {
           cached ?? (await fetchOneQuestion(client, chainId, requestedDpId));
 
         if (!data) {
-          throw new Error("Question not found for the requested dp_id.");
+          throw new Error("Question not found for this topic.");
         }
 
         const attempt = appendAttempt(chainId, data);
@@ -255,7 +255,7 @@ export function useExtractionQuiz() {
         if (exhausted) {
           resetChainProgress(chainId);
           appendSystem(
-            "You've reached the end of this chain's questions. Pick another topic, start a new session, or ask again to begin from the first question."
+            "You've reached the end of this topic's questions. Pick another topic, start a new session, or ask again to begin from the first question."
           );
           setError(null);
           return null;

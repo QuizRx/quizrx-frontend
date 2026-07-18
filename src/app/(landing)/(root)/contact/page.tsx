@@ -20,7 +20,7 @@ const SUPPORT_EMAIL = "adminquizrx@gmail.com";
 
 const FEEDBACK_HINTS = [
   "Was a question wrong, unclear, or missing context?",
-  "Which calcium / bone chain should we improve first?",
+  "Which calcium / bone topic should we improve first?",
   "What other modules would you like to see next?",
 ];
 

@@ -159,6 +159,14 @@ export function LoginForm() {
                 )}
               />
             </motion.div>
+            <motion.div
+              className="-mt-3 text-right text-sm"
+              variants={staggerUpAnimation}
+            >
+              <Link href="/auth/forgot-password" className="text-primary">
+                Forgot password?
+              </Link>
+            </motion.div>
             <motion.div variants={staggerUpAnimation}>
               <Button type="submit" className="w-full" loading={isSubmitting}>
                 Login

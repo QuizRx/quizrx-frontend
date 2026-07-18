@@ -9,6 +9,7 @@ import {
   ExtractionAttempt,
   useExtractionQuizStore,
 } from "../store/extraction-quiz-store";
+import { findChainById } from "../data/chains";
 import { useExtractionQuiz } from "../hooks/use-extraction-quiz";
 import type { QuestionFeedbackInput } from "../types";
 
@@ -98,7 +99,9 @@ export function ExtractionQuestionCard({
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <p className="mb-4 text-sm font-medium text-zinc-500">
-        {question.sub_topic ?? attempt.chainId}
+        {question.sub_topic ??
+          findChainById(attempt.chainId)?.label ??
+          "Practice question"}
       </p>
       <h3 className="mb-4 text-base font-medium text-zinc-900 leading-relaxed">
         {question.question}

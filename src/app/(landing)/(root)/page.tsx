@@ -13,19 +13,19 @@ const featurePoints = [
     icon: Stethoscope,
     title: "Calcium & bone, focused",
     description:
-      "Nine pre-authored chains covering the high-yield calcium and bone disorders.",
+      "Focused coverage of the high-yield calcium and bone disorders, with nothing extra to wade through.",
   },
   {
     icon: Sparkles,
-    title: "Deterministic questions",
+    title: "Clinician-written questions",
     description:
-      "Questions are curated by clinicians, not LLM-generated. Fast, repeatable, exam-grade.",
+      "Every question is written and reviewed by clinicians — consistent, repeatable, and exam-grade.",
   },
   {
     icon: MessageSquareHeart,
     title: "Beta feedback loop",
     description:
-      "Per-question thumbs and free text feed straight back to the team building QuizRx.",
+      "Thumbs and a comment box on every question feed straight back to the team building QuizRx.",
   },
 ] as const;
 
@@ -68,9 +68,9 @@ export default function BetaLandingPage() {
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-zinc-700 md:text-lg">
               Welcome to the closed beta of QuizRx. The first module covers calcium
-              and bone disorders only. Pick a topic, ask the model to generate or
-              quiz you on a question, and tell us how it lands - your feedback
-              shapes what we ship next.
+              and bone disorders only. Pick a topic, ask for a question or get
+              quizzed, and tell us how it lands - your feedback shapes what we
+              ship next.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -105,7 +105,7 @@ export default function BetaLandingPage() {
                 Today's beta
               </p>
               <p className="mt-2 text-lg font-medium text-zinc-800">
-                9 chains. ~234 decision points. Live now.
+                9 topics. 200+ practice questions. Live now.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-zinc-600">
                 <li>- Calcium &amp; Bone Physiology</li>

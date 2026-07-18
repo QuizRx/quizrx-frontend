@@ -164,7 +164,7 @@ export function ChatPageShell({
                 {selectedChainId && isWarmingPool && !poolWarmedAt && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Indexing questions
+                    Preparing questions
                   </span>
                 )}
               </span>
