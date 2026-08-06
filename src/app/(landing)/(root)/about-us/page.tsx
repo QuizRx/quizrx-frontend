@@ -2,49 +2,16 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import {
-  ArrowRight,
-  Bone,
-  ClipboardCheck,
-  Compass,
-  HeartPulse,
-  MessageSquareHeart,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/core/components/ui/button";
+import { FEATURE_CARDS } from "@/modules/landing/data/feature-cards";
 
-const principles = [
-  {
-    icon: ClipboardCheck,
-    title: "Clinician-authored content",
-    description:
-      "Every question in this beta was written and reviewed by a clinician, so you can trust the clinical reasoning behind each answer.",
-  },
-  {
-    icon: Sparkles,
-    title: "Consistent by design",
-    description:
-      "Consistent questions and answers, so you can study without surprises while we keep raising the bar on quality.",
-  },
-  {
-    icon: MessageSquareHeart,
-    title: "Feedback in the loop",
-    description:
-      "Thumbs up / down and a free-text box on every question. Your notes go straight to the people building QuizRx.",
-  },
-];
-
-const moduleTopics = [
-  "Calcium & Bone Physiology",
-  "Osteoporosis",
-  "Osteomalacia",
-  "Hypercalcaemia",
-  "Hypocalcaemia",
-  "Primary Hyperparathyroidism",
-  "Paget's Disease",
-  "Osteogenesis Imperfecta",
-  "Renal Osteodystrophy",
-];
+const BETA_AT_A_GLANCE = [
+  "Built by a board-certified physician",
+  "AI-assisted question generation",
+  "One focused learning module",
+  "Your feedback shapes future releases",
+] as const;
 
 export default function AboutUsPage() {
   return (
@@ -57,21 +24,18 @@ export default function AboutUsPage() {
           className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_320px] md:items-center"
         >
           <div className="space-y-6">
-            <span
-              aria-hidden
-              className="inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
-            />
+            <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
+              Beta
+            </span>
             <h1 className="text-4xl font-semibold leading-tight text-[var(--primary)] md:text-5xl">
               About QuizRx
-              <span className="ml-3 inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 align-middle text-sm font-semibold">
-                Beta
-              </span>
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-zinc-700 md:text-lg">
-              QuizRx is a focused medical learning tool. The closed beta covers
-              one module - calcium and bone disorders - with clinician-authored
-              questions and explanations, so every bit of clinical content comes
-              from real practitioners.
+              QuizRx is a medical learning platform built to help physicians
+              strengthen their clinical thinking through carefully designed
+              questions and detailed explanations. This closed beta introduces
+              our first module, Calcium &amp; Bone, and your feedback will help
+              shape what comes next.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -80,7 +44,7 @@ export default function AboutUsPage() {
                 className="rounded-full bg-[var(--primary)] px-6 hover:bg-[var(--primary)]/90"
               >
                 <Link href="/auth/login">
-                  Try the beta
+                  Try the Beta
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -90,7 +54,7 @@ export default function AboutUsPage() {
                 size="lg"
                 className="rounded-full border-[var(--primary)]/40 text-[var(--primary)] hover:bg-[var(--primary)]/5"
               >
-                <Link href="/contact">Get in touch</Link>
+                <Link href="/feedback">Send feedback</Link>
               </Button>
             </div>
           </div>
@@ -103,24 +67,17 @@ export default function AboutUsPage() {
           >
             <div className="rounded-3xl border border-zinc-200 bg-white/80 p-6 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
-                Beta scope
+                Beta at a Glance
               </p>
-              <p className="mt-2 text-lg font-medium text-zinc-800">
-                One module. Nine topics. Live now.
-              </p>
-              <ul className="mt-4 space-y-2 text-sm text-zinc-600">
-                <li className="flex items-center gap-2">
-                  <Bone className="h-4 w-4 text-[var(--primary)]" />
-                  Calcium &amp; Bone disorders
-                </li>
-                <li className="flex items-center gap-2">
-                  <HeartPulse className="h-4 w-4 text-[var(--primary)]" />
-                  Clinician-reviewed answers
-                </li>
-                <li className="flex items-center gap-2">
-                  <Compass className="h-4 w-4 text-[var(--primary)]" />
-                  Every question written by clinicians
-                </li>
+              <ul className="mt-4 space-y-3 text-sm text-zinc-700">
+                {BETA_AT_A_GLANCE.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                      <Check className="h-3 w-3" />
+                    </span>
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
             </div>
           </motion.div>
@@ -130,16 +87,16 @@ export default function AboutUsPage() {
       <section className="border-y border-zinc-200/70 bg-white/60 py-16">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-2xl font-semibold text-[var(--primary)]">
-            How we built it
+            Our Approach
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-700 md:text-base">
-            Passive PDFs and infinite question banks were never quite right for
-            us. QuizRx narrows things down: pick a topic, work through
-            questions written by someone who actually treats these patients,
-            and tell us what landed. The beta is small on purpose.
+            We believe meaningful learning comes from thinking, not memorizing.
+            QuizRx is designed to help you work through clinical problems,
+            understand the reasoning behind each answer, and build confidence one
+            question at a time.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-            {principles.map((point) => (
+            {FEATURE_CARDS.map((point) => (
               <div
                 key={point.title}
                 className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
@@ -160,55 +117,20 @@ export default function AboutUsPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_1fr] md:items-center">
-          <div>
-            <span
-              aria-hidden
-              className="inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
-            />
-            <h2 className="mt-4 text-2xl font-semibold text-[var(--primary)] md:text-3xl">
-              What's in this module
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-700 md:text-base">
-              Nine topics covering calcium and bone, with a growing set of
-              practice questions. The list will grow with the next module - but
-              only after this one is solid.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-zinc-200 bg-white/80 p-6 shadow-sm">
-            <ul className="grid grid-cols-1 gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-              {moduleTopics.map((topic) => (
-                <li
-                  key={topic}
-                  className="flex items-start gap-2 rounded-xl bg-[var(--primary)]/5 px-3 py-2"
-                >
-                  <span
-                    aria-hidden
-                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-amber,#E0B16A)]"
-                  />
-                  <span>{topic}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 pb-24">
         <div className="rounded-3xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-8 md:p-12">
           <h2 className="text-2xl font-semibold text-[var(--primary)]">
-            Help us shape what comes next
+            Help Shape What Comes Next
           </h2>
           <p className="mt-3 max-w-2xl text-sm text-zinc-700 md:text-base">
-            Spotted a question that wasn't great? Have a module you'd like to
-            see next? The team reads every message during the beta.
+            Found something confusing? Have an idea for QuizRx? We&apos;d love to
+            hear from you. Every message helps improve future versions.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button
               asChild
               className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
             >
-              <Link href="/contact">Send feedback</Link>
+              <Link href="/feedback">Send feedback</Link>
             </Button>
             <Button
               asChild

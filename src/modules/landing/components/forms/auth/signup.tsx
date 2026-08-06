@@ -12,13 +12,24 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/core/components/ui/form";
 import { Input } from "@/core/components/ui/input";
+import { Checkbox } from "@/core/components/ui/checkbox";
+import { Label } from "@/core/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/core/components/ui/select";
 import { getFirebaseAuth } from "@/core/configs/firebase";
 import { toast } from "@/core/hooks/use-toast";
 import { cn } from "@/core/lib/utils";
 import { useAuth } from "@/core/providers/auth";
+import { EXAM_PREPARATION_OPTIONS } from "@/modules/landing/data/exam-options";
 import { signInWithCustomToken } from "firebase/auth";
 import { Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
@@ -42,6 +53,9 @@ export function SignupForm({
       lastName: startingName ? startingName.split(" ").slice(1).join(" ") : "",
       email: forceEmail || "",
       password: "",
+      whatsappNumber: "",
+      whatsappConsent: false,
+      examPreparation: undefined,
     },
   });
   const [createUserWithEmailAndPasswordMutation, { loading }] = useMutation(
@@ -50,6 +64,8 @@ export function SignupForm({
   const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit: SubmitHandler<SignUpFormValues> = async (data) => {
+    const whatsappNumber = data.whatsappNumber?.trim();
+
     await createUserWithEmailAndPasswordMutation({
       variables: {
         createUserInput: {
@@ -57,6 +73,11 @@ export function SignupForm({
           lastName: data.lastName,
           email: data.email,
           password: data.password,
+          ...(whatsappNumber ? { whatsappNumber } : {}),
+          whatsappConsent: data.whatsappConsent ?? false,
+          ...(data.examPreparation
+            ? { examPreparation: data.examPreparation }
+            : {}),
         },
       },
       onCompleted: async (res) => {
@@ -270,6 +291,106 @@ export function SignupForm({
             )}
           </motion.div>
 
+          <motion.div
+            className="grid gap-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              duration: 0.4,
+              ease: [0.17, 0.67, 0.83, 0.67] as const,
+            }}
+          >
+            <FormField
+              control={form.control}
+              name="whatsappNumber"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormLabel htmlFor="whatsappNumber">
+                    WhatsApp number (optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="whatsappNumber"
+                      type="tel"
+                      inputMode="tel"
+                      placeholder="+20 100 000 0000"
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="whatsappConsent"
+              render={({ field }) => (
+                <FormItem className="mt-2 flex flex-row items-start gap-3 space-y-0 rounded-lg border border-zinc-200 p-3">
+                  <FormControl>
+                    <Checkbox
+                      id="whatsappConsent"
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                      className="mt-0.5"
+                    />
+                  </FormControl>
+                  <Label
+                    htmlFor="whatsappConsent"
+                    className="text-xs font-normal leading-5 text-muted-foreground"
+                  >
+                    I agree to receive occasional QuizRx updates, beta
+                    communications, and invitations to future learning modules
+                    by WhatsApp. I can opt out at any time.
+                  </Label>
+                </FormItem>
+              )}
+            />
+          </motion.div>
+
+          <motion.div
+            className="grid gap-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              duration: 0.4,
+              ease: [0.17, 0.67, 0.83, 0.67] as const,
+            }}
+          >
+            <FormField
+              control={form.control}
+              name="examPreparation"
+              render={({ field }) => (
+                <FormItem className="w-full">
+                  <FormLabel>
+                    Which exam are you preparing for? (optional)
+                  </FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an option" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {EXAM_PREPARATION_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </motion.div>
+
           <Button
             type="submit"
             className="w-full"
@@ -299,7 +420,7 @@ export function SignupForm({
       >
         Already have an account?{" "}
         <Link href="/auth/login" className="text-primary">
-          Login
+          Sign In
         </Link>
       </motion.div>
     </motion.div>

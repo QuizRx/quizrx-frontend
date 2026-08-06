@@ -6,9 +6,8 @@ import { Separator } from "@/core/components/ui/separator";
 
 const FOOTER_LINKS = [
   { label: "About", href: "/about-us" },
-  { label: "Contact", href: "/contact" },
+  { label: "Feedback", href: "/feedback" },
   { label: "Privacy", href: "/privacy-policy" },
-  { label: "Cookies", href: "/cookies-policy" },
 ];
 
 const Footer = () => {

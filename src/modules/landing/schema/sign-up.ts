@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EXAM_PREPARATION_OPTIONS } from "@/modules/landing/data/exam-options";
 
 const signUpFormSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required" }),
@@ -22,6 +23,14 @@ const signUpFormSchema = z.object({
     .refine((value) => /.{8,}/.test(value), {
       message: "Password must be at least 8 characters",
     }),
+  // Optional beta fields (spec A-06). None block account creation.
+  whatsappNumber: z
+    .string()
+    .trim()
+    .max(32, { message: "Please enter a valid phone number" })
+    .optional(),
+  whatsappConsent: z.boolean(),
+  examPreparation: z.enum(EXAM_PREPARATION_OPTIONS).optional(),
 });
 
 type SignUpFormValues = z.infer<typeof signUpFormSchema>;

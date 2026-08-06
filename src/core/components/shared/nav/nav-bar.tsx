@@ -18,8 +18,9 @@ import {
 } from "@/core/components/ui/sheet";
 
 const NAV_ITEMS = [
+  { label: "Home", href: "/" },
   { label: "About", href: "/about-us" },
-  { label: "Contact", href: "/contact" },
+  { label: "Feedback", href: "/feedback" },
   { label: "Privacy", href: "/privacy-policy" },
 ];
 

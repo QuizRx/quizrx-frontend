@@ -34,12 +34,6 @@ const ChatNavHeader = () => {
       </section>
 
       <section className="flex items-center gap-3">
-        <Link
-          href="/about-us"
-          className="hidden text-sm font-medium text-zinc-700 transition-colors hover:text-[var(--primary)] md:inline-flex"
-        >
-          About
-        </Link>
         {isAdmin && (
           <Link
             href="/admin"

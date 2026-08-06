@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Loader2, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Check, Flag, X } from "lucide-react";
 import { Button } from "@/core/components/ui/button";
-import { Textarea } from "@/core/components/ui/textarea";
 import { cn } from "@/core/lib/utils";
 import {
   ExtractionAttempt,
@@ -11,7 +10,9 @@ import {
 } from "../store/extraction-quiz-store";
 import { findChainById } from "../data/chains";
 import { useExtractionQuiz } from "../hooks/use-extraction-quiz";
+import type { ReportReason } from "../data/report-reasons";
 import type { QuestionFeedbackInput } from "../types";
+import { ReportQuestionDialog } from "./report-question-dialog";
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E"] as const;
 
@@ -23,11 +24,9 @@ export function ExtractionQuestionCard({
   attempt,
 }: ExtractionQuestionCardProps) {
   const [submitting, setSubmitting] = useState(false);
-  const [showFreeText, setShowFreeText] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const recordAnswer = useExtractionQuizStore((s) => s.recordAnswer);
-  const recordRating = useExtractionQuizStore((s) => s.recordRating);
-  const recordFreeText = useExtractionQuizStore((s) => s.recordFreeText);
   const { submitFeedback } = useExtractionQuiz();
 
   const { question } = attempt.question;
@@ -43,19 +42,20 @@ export function ExtractionQuestionCard({
 
   const buildFeedbackInput = (
     selectedIndex: number,
-    rating: "up" | "down" | null,
-    freeText?: string
+    freeText?: string,
+    reportReason?: ReportReason
   ): QuestionFeedbackInput => {
     const isCorrect = question.choices[selectedIndex] === question.answer;
     return {
       chainId: attempt.chainId,
       dpId: question.dp_id,
+      questionId: question.dp_id,
       isCorrect,
       shownTrapIds: trapIds,
       selectedTrapId: question.option_trap_ids?.[selectedIndex] ?? null,
       selectedOptionLabel: OPTION_LABELS[selectedIndex],
       selectedOptionText: question.choices[selectedIndex],
-      rating,
+      reportReason: reportReason ?? undefined,
       freeText: freeText && freeText.trim() ? freeText.trim() : undefined,
     };
   };
@@ -64,36 +64,26 @@ export function ExtractionQuestionCard({
     if (isAnswered || submitting) return;
     recordAnswer(attempt.id, index);
     setSubmitting(true);
-    // Silent: this is the initial answer, not a feedback action. We still
-    // POST it so trap analytics (US-3.2) get the record, but we don't
-    // toast "Thanks for the feedback" — the user hasn't given feedback yet.
-    await submitFeedback(buildFeedbackInput(index, null), attempt.id, {
+    // Silent: this records the answer + trap analytics, not a feedback action.
+    await submitFeedback(buildFeedbackInput(index), attempt.id, {
       silent: true,
     });
     setSubmitting(false);
   };
 
-  const handleRating = async (rating: "up" | "down") => {
-    if (attempt.selectedIndex === null) return;
-    const next = attempt.rating === rating ? null : rating;
-    recordRating(attempt.id, next);
-    setSubmitting(true);
-    await submitFeedback(
-      buildFeedbackInput(attempt.selectedIndex, next, attempt.freeText),
-      attempt.id
+  // Report submission (A-14 / H-13). The structured reason goes in the
+  // dedicated `reportReason` field and the optional comment in `freeText`; the
+  // question metadata is attached automatically here.
+  const handleReportSubmit = async (
+    reason: ReportReason,
+    comment: string
+  ): Promise<boolean> => {
+    if (attempt.selectedIndex === null) return false;
+    return submitFeedback(
+      buildFeedbackInput(attempt.selectedIndex, comment || undefined, reason),
+      attempt.id,
+      { silent: true }
     );
-    setSubmitting(false);
-  };
-
-  const handleFreeTextSubmit = async () => {
-    if (attempt.selectedIndex === null) return;
-    setSubmitting(true);
-    await submitFeedback(
-      buildFeedbackInput(attempt.selectedIndex, attempt.rating, attempt.freeText),
-      attempt.id
-    );
-    setSubmitting(false);
-    setShowFreeText(false);
   };
 
   return (
@@ -158,7 +148,7 @@ export function ExtractionQuestionCard({
       {isAnswered && explanation && (
         <div className="mt-5 rounded-xl border border-zinc-200 bg-[var(--primary)]/5 p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
-            Explanation
+            Why this is correct
           </p>
           <p className="whitespace-pre-line text-sm text-zinc-700 leading-relaxed">
             {explanation}
@@ -167,72 +157,24 @@ export function ExtractionQuestionCard({
       )}
 
       {isAnswered && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => handleRating("up")}
-            className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors hover:text-[var(--primary)]",
-              attempt.rating === "up" &&
-                "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]"
-            )}
-            aria-label="Rate question helpful"
-          >
-            <ThumbsUp className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => handleRating("down")}
-            className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 transition-colors hover:text-rose-600",
-              attempt.rating === "down" &&
-                "border-rose-300 bg-rose-50 text-rose-600"
-            )}
-            aria-label="Rate question unhelpful"
-          >
-            <ThumbsDown className="h-4 w-4" />
-          </button>
-
+        <div className="mt-4 flex items-center justify-end">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowFreeText((v) => !v)}
-            className="text-xs text-zinc-500"
+            onClick={() => setReportOpen(true)}
+            className="gap-1.5 text-xs text-zinc-500 hover:text-[var(--primary)]"
           >
-            {showFreeText ? "Cancel" : "Add a comment"}
+            <Flag className="h-3.5 w-3.5" />
+            Report this question
           </Button>
-
-          {submitting && (
-            <span className="inline-flex items-center gap-1 text-xs text-zinc-400">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Sending feedback…
-            </span>
-          )}
         </div>
       )}
 
-      {isAnswered && showFreeText && (
-        <div className="mt-3 space-y-2">
-          <Textarea
-            value={attempt.freeText}
-            onChange={(e) => recordFreeText(attempt.id, e.target.value)}
-            placeholder="Tell us what worked or what we should fix…"
-            rows={3}
-            className="text-sm"
-          />
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              onClick={handleFreeTextSubmit}
-              disabled={submitting || attempt.freeText.trim().length === 0}
-            >
-              {submitting ? "Sending…" : "Send"}
-            </Button>
-          </div>
-        </div>
-      )}
+      <ReportQuestionDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        onSubmit={handleReportSubmit}
+      />
     </div>
   );
 }

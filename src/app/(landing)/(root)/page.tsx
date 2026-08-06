@@ -4,38 +4,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, MessageSquareHeart, Sparkles, Stethoscope } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/core/components/ui/button";
 import { useAuth } from "@/core/providers/auth";
+import { FEATURE_CARDS } from "@/modules/landing/data/feature-cards";
 
-const featurePoints = [
-  {
-    icon: Stethoscope,
-    title: "Calcium & bone, focused",
-    description:
-      "Focused coverage of the high-yield calcium and bone disorders, with nothing extra to wade through.",
-  },
-  {
-    icon: Sparkles,
-    title: "Clinician-written questions",
-    description:
-      "Every question is written and reviewed by clinicians — consistent, repeatable, and exam-grade.",
-  },
-  {
-    icon: MessageSquareHeart,
-    title: "Beta feedback loop",
-    description:
-      "Thumbs and a comment box on every question feed straight back to the team building QuizRx.",
-  },
+const BETA_HIGHLIGHTS = [
+  "Built by a board-certified physician",
+  "AI-assisted question generation",
+  "Detailed answer explanations",
+  "Your feedback shapes what comes next",
 ] as const;
 
 export default function BetaLandingPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  // The marketing landing should funnel logged-in users straight to the
-  // app. Other landing-area pages (/about-us, /contact, /privacy-policy,
-  // /cookies-policy) are still accessible while signed in.
+  // The marketing landing should funnel logged-in users straight to the app.
+  // Other landing-area pages (/about-us, /feedback, /privacy-policy) remain
+  // accessible while signed in. Only the root "/" page redirects.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       router.replace("/chat");
@@ -56,21 +43,18 @@ export default function BetaLandingPage() {
           className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_320px] md:items-center"
         >
           <div className="space-y-6">
-            <span
-              aria-hidden
-              className="inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
-            />
+            <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
+              Beta
+            </span>
             <h1 className="text-4xl font-semibold leading-tight text-[var(--primary)] md:text-5xl">
-              Calcium &amp; Bone Module
-              <span className="ml-3 inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 align-middle text-sm font-semibold">
-                Beta
-              </span>
+              Questions That Make You Think.
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-zinc-700 md:text-lg">
-              Welcome to the closed beta of QuizRx. The first module covers calcium
-              and bone disorders only. Pick a topic, ask for a question or get
-              quizzed, and tell us how it lands - your feedback shapes what we
-              ship next.
+              Welcome to the closed beta of QuizRx. Explore AI-assisted questions
+              designed by a board-certified physician across our first module,
+              Calcium &amp; Bone. Review detailed explanations, challenge your
+              clinical thinking, and help shape the future of QuizRx through your
+              feedback.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -79,7 +63,7 @@ export default function BetaLandingPage() {
                 className="rounded-full bg-[var(--primary)] px-6 hover:bg-[var(--primary)]/90"
               >
                 <Link href="/auth/login">
-                  Try the beta
+                  Try the Beta
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -89,7 +73,7 @@ export default function BetaLandingPage() {
                 size="lg"
                 className="rounded-full border-[var(--primary)]/40 text-[var(--primary)] hover:bg-[var(--primary)]/5"
               >
-                <Link href="/about-us">Learn more</Link>
+                <Link href="/about-us">About QuizRx</Link>
               </Button>
             </div>
           </div>
@@ -102,17 +86,17 @@ export default function BetaLandingPage() {
           >
             <div className="rounded-3xl border border-zinc-200 bg-white/80 p-6 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
-                Today's beta
+                Now in Beta
               </p>
-              <p className="mt-2 text-lg font-medium text-zinc-800">
-                9 topics. 200+ practice questions. Live now.
-              </p>
-              <ul className="mt-4 space-y-2 text-sm text-zinc-600">
-                <li>- Calcium &amp; Bone Physiology</li>
-                <li>- Osteoporosis &amp; Osteomalacia</li>
-                <li>- Hyper / Hypocalcaemia</li>
-                <li>- Primary Hyperparathyroidism</li>
-                <li>- Paget's, Osteogenesis Imperfecta, more</li>
+              <ul className="mt-4 space-y-3 text-sm text-zinc-700">
+                {BETA_HIGHLIGHTS.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+                      <Check className="h-3 w-3" />
+                    </span>
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
             </div>
           </motion.div>
@@ -121,11 +105,8 @@ export default function BetaLandingPage() {
 
       <section className="border-y border-zinc-200/70 bg-white/60 py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-2xl font-semibold text-[var(--primary)]">
-            What's in the beta
-          </h2>
-          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-            {featurePoints.map((point) => (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {FEATURE_CARDS.map((point) => (
               <div
                 key={point.title}
                 className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
@@ -148,18 +129,18 @@ export default function BetaLandingPage() {
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="rounded-3xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 p-8 md:p-12">
           <h2 className="text-2xl font-semibold text-[var(--primary)]">
-            Help us shape QuizRx
+            Help shape what comes next
           </h2>
           <p className="mt-3 max-w-2xl text-sm text-zinc-700 md:text-base">
-            Spot a question that wasn't great? A topic we should cover next?
-            Send a note any time - the team reads everything during beta.
+            Found something confusing? Have an idea for QuizRx? We&apos;d love to
+            hear from you. Every message helps improve future versions.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button
               asChild
               className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
             >
-              <Link href="/contact">Send feedback</Link>
+              <Link href="/feedback">Send feedback</Link>
             </Button>
             <Button
               asChild

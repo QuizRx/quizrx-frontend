@@ -30,12 +30,17 @@ export type ExtractionQuestionResponse = {
 export type QuestionFeedbackInput = {
   chainId: string;
   dpId: string;
+  // Opaque question id echoed back to the backend (X-01 contract). The frontend
+  // never parses it; pre-migration it mirrors `dp_id`.
+  questionId?: string;
   isCorrect: boolean;
   shownTrapIds?: string[];
   selectedTrapId?: string | null;
   selectedOptionLabel?: string;
   selectedOptionText?: string;
-  rating?: "up" | "down" | null;
+  // Structured "Report this question" reason (spec H-13 / A-14). Snake_case
+  // token per the X-01 contract. Set only by the report dialog.
+  reportReason?: string | null;
   freeText?: string;
   sessionId?: string;
 };

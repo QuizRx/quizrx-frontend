@@ -16,6 +16,7 @@ import {
   pickBestMatch,
   pickNextUnseen,
 } from "../utils/match";
+import { APPROVED_RESPONSES } from "../utils/small-talk";
 import type {
   ExtractionQuestionData,
   ExtractionQuestionResponse,
@@ -228,8 +229,26 @@ export function useExtractionQuiz() {
             (q) => q.question.dp_id === requestedDpId
           );
 
-        const data =
+        let data =
           cached ?? (await fetchOneQuestion(client, chainId, requestedDpId));
+
+        // Automatic single retry with another eligible question from the same
+        // topic (spec A-15 / H-11) so a transient or missing-record failure
+        // doesn't surface to the learner.
+        let retried = false;
+        if (!data && advance && targetIndex !== null) {
+          const retryIndex = targetIndex + 1;
+          const retryData = await fetchOneQuestion(
+            client,
+            chainId,
+            buildDpId(chainId, retryIndex)
+          );
+          if (retryData) {
+            data = retryData;
+            targetIndex = retryIndex;
+            retried = true;
+          }
+        }
 
         if (!data) {
           throw new Error("Question not found for this topic.");
@@ -239,6 +258,7 @@ export function useExtractionQuiz() {
 
         if (advance) {
           advanceChainProgress(chainId);
+          if (retried) advanceChainProgress(chainId);
         }
         // `pickSource` is intentionally not surfaced to the UI — it's here
         // for future debugging / analytics if we want to log it.
@@ -261,11 +281,14 @@ export function useExtractionQuiz() {
           return null;
         }
 
-        const message =
-          err instanceof Error ? err.message : "Could not load a question.";
-        setError(message);
-        appendSystem(`We couldn't fetch a question: ${message}`);
-        toast({ title: "Question failed", description: message });
+        // Log the real failure for engineering review, but only ever show the
+        // approved friendly copy to the learner (spec A-15 / H-01). The user
+        // stays signed in with their topic intact and can retry.
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Extraction question fetch failed:", err);
+        }
+        setError(APPROVED_RESPONSES.generationFailure);
+        appendSystem(APPROVED_RESPONSES.generationFailure);
         return null;
       } finally {
         setIsFetching(false);

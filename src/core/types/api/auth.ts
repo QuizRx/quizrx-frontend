@@ -4,6 +4,10 @@ export type CreateUserWithEmailAndPasswordInput = {
   lastName: string;
   email: string;
   password: string;
+  // Optional beta fields (spec A-06 / backend H-14).
+  whatsappNumber?: string;
+  whatsappConsent?: boolean;
+  examPreparation?: string;
 };
 
 export type DecodedJwtTokenType = {

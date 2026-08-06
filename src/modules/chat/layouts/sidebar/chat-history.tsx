@@ -134,7 +134,7 @@ export function ChatHistorySidebar() {
               <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
                 <div className="flex items-center gap-2 text-[var(--primary)]">
                   <ChatBubbleIcon className="h-4 w-4" />
-                  <h2 className="text-sm font-semibold">Sessions</h2>
+                  <h2 className="text-sm font-semibold">History</h2>
                 </div>
                 {isMobile && (
                   <Button
@@ -166,7 +166,7 @@ export function ChatHistorySidebar() {
                   </p>
                   {recentAttempts.length === 0 ? (
                     <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                      No questions yet. Pick a topic and ask the model to begin.
+                      No questions yet. Pick a topic and ask a question to begin.
                     </p>
                   ) : (
                     <ul className="space-y-2">

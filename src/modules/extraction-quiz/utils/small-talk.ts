@@ -1,14 +1,15 @@
-// Small-talk handling for the quiz surface.
+// Conversation classifier for the QuizRx beta chat surface.
 //
-// This beta chat page is a quiz-only surface: every typed message is otherwise
-// treated as "fetch the next question". A conversational message ("hi",
-// "thanks", "how are you", "are you an AI?", "ok", "good job", "tell me a joke")
-// should instead get a natural, human reply and NOT consume a question.
+// Every typed message is classified into one of the approved beta categories
+// (spec H-02 / frontend interim implementation) BEFORE it can trigger question
+// generation:
 //
-// We classify intent with a mix of exact-match sets (for short fixed phrases)
-// and anchored regex patterns (for phrasings that vary). Everything is anchored
-// tightly enough that it can't collide with a real quiz prompt — see the
-// false-positive tests documented alongside this module.
+//   • Small talk        → warm, brief reply that guides toward a learning action
+//   • Outside QuizRx     → medical-but-outside-module OR non-medical redirect
+//   • QuizRx action      → falls through to the learning pipeline (question fetch)
+//
+// User-facing strings that appear in the approved response library (Appendix A)
+// are reproduced here EXACTLY and must not be altered.
 
 export type SmallTalkKind =
   | "greeting"
@@ -20,6 +21,32 @@ export type SmallTalkKind =
   | "praise"
   | "acknowledgement"
   | "chitchat";
+
+export type ScopeKind = "medical-outside" | "non-medical";
+
+// --- Approved exact copy (Appendix A) --------------------------------------
+export const APPROVED_RESPONSES = {
+  greetingNoTopic:
+    "Hello! Welcome to QuizRx. Ready to begin? Choose a topic if you would like, ask for a clinical question, or tell me what you would like to learn today.",
+  greetingTopic: (topic: string) =>
+    `Hello! You're currently exploring ${topic}. Ask for a question, request an explanation, or start with one of the suggested prompts.`,
+  thanksTopic: (topic: string) =>
+    `You're welcome. When you're ready, I can generate another question, explain a concept, or continue with ${topic}.`,
+  thanksNoTopic:
+    "You're welcome. When you're ready, I can generate another question or explain a concept.",
+  capability:
+    "I can generate clinical questions, quiz you on a selected topic, explain concepts, and review a question with you. Choose a topic if you would like to focus the session, or simply type your request.",
+  howAreYou:
+    "I'm ready to help you learn. Choose a topic, ask for a clinical question, or tell me what you would like to review.",
+  medicalOutside:
+    "QuizRx is currently focused on the Calcium & Bone beta module. I can help you with topics from this module, generate clinical questions, explain concepts, or quiz you on them.",
+  nonMedical:
+    "I'm here to help you learn medicine through QuizRx. Let's get back to the Calcium & Bone module. Choose a topic or ask me a question whenever you're ready.",
+  comparisonRedirect:
+    "That's a useful distinction to practice. For this beta, I can teach it through a comparison-style clinical question.",
+  generationFailure:
+    "Sorry, I couldn't generate a question just now. Please try again.",
+} as const;
 
 // --- exact-match sets ------------------------------------------------------
 const GREETINGS = new Set([
@@ -57,10 +84,8 @@ const ACKNOWLEDGEMENTS = new Set([
 ]);
 
 // --- pattern-matched categories -------------------------------------------
-// These vary too much for an exact allowlist, but are distinctive enough that
-// they can't collide with a real quiz prompt.
 const GREETING_PATTERNS: readonly RegExp[] = [
-  /^(hi+|hii+|hiya+|hey+|heyy+|heya+|hello+|helo+|yo+)$/,     // "hiiii", "heyyy"
+  /^(hi+|hii+|hiya+|hey+|heyy+|heya+|hello+|helo+|yo+)$/,
   /^(good )?(morning|afternoon|evening|day)$/,
   /^(hi|hii|hey|heyy|hello|yo|howdy|greetings|hiya)( there| again| quizrx| quiz rx| buddy| friend| all| everyone| team)$/,
 ];
@@ -77,8 +102,8 @@ const FAREWELL_PATTERNS: readonly RegExp[] = [
 ];
 
 const CAPABILITY_PATTERNS: readonly RegExp[] = [
-  /^what (can|do) you\b/,                       // "what can you do", "what do you do"
-  /^what (topics|subjects) (are|can i|do you)\b/, // "what topics are available" (not "what topics cause X")
+  /^what (can|do) you\b/,
+  /^what (topics|subjects) (are|can i|do you)\b/,
   /^what (can|should) i (ask|study|do|start|begin|pick|choose)\b/,
   /^how (do i|to) (start|use|begin)\b/,
   /^how do you work\b/,
@@ -128,26 +153,20 @@ const CHITCHAT_PATTERNS: readonly RegExp[] = [
   /\b(do you love me|marry me|will you marry)\b/,
 ];
 
-// Match only when the WHOLE message is small-talk (after stripping punctuation
-// and collapsing whitespace), so real questions that merely contain "hi" or
-// "help" (e.g. "help me understand hypercalcaemia") still flow to the quiz.
-export function classifySmallTalk(input: string): SmallTalkKind | null {
-  const normalized = input
+const normalize = (input: string): string =>
+  input
     .toLowerCase()
-    .replace(/[^a-z\s]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
+export function classifySmallTalk(input: string): SmallTalkKind | null {
+  const normalized = normalize(input).replace(/[0-9]/g, "").trim();
   if (!normalized) return null;
 
-  const matches = (
-    set: Set<string>,
-    patterns: readonly RegExp[]
-  ): boolean => set.has(normalized) || patterns.some((re) => re.test(normalized));
+  const matches = (set: Set<string>, patterns: readonly RegExp[]): boolean =>
+    set.has(normalized) || patterns.some((re) => re.test(normalized));
 
-  // Order matters: more specific / higher-signal categories first so an
-  // ambiguous token (e.g. "cool thanks" → thanks, not acknowledgement) lands
-  // in the right bucket.
   if (matches(THANKS, THANKS_PATTERNS)) return "thanks";
   if (matches(FAREWELLS, FAREWELL_PATTERNS)) return "farewell";
   if (PRAISE_PATTERNS.some((re) => re.test(normalized))) return "praise";
@@ -161,101 +180,112 @@ export function classifySmallTalk(input: string): SmallTalkKind | null {
   return null;
 }
 
-const pick = (options: readonly string[]): string =>
-  options[Math.floor(Math.random() * options.length)];
+// --- scope classification --------------------------------------------------
+// In-module terms mean the request belongs to the Calcium & Bone beta, so it
+// should flow through to the learning pipeline rather than being redirected.
+const IN_MODULE_TERMS: readonly RegExp[] = [
+  /\bcalcium\b/, /\bbone(s)?\b/, /\bskeletal\b/, /\bosteoporosis\b/,
+  /\bosteomalacia\b/, /\brickets\b/, /\bpaget\b/, /\bosteogenesis\b/,
+  /\bhypercalc\w*/, /\bhypocalc\w*/, /\bhypomagnes\w*/, /\bmagnesium\b/,
+  /\bparathyroid\b/, /\bhyperparathyroid\w*/, /\bhypoparathyroid\w*/,
+  /\bpth\b/, /\bvitamin ?d\b/, /\bphosphate\b/, /\bphosphor\w*/,
+  /\bfhh\b/, /\bfamilial hypocalciuric\b/, /\bbisphosphonate(s)?\b/,
+  /\bdenosumab\b/, /\bteriparatide\b/, /\bcinacalcet\b/, /\bde ?xa\b/,
+  /\bt[- ]score\b/, /\balkaline phosphatase\b/, /\balp\b/, /\bcalcitonin\b/,
+  /\bfracture(s)?\b/, /\bphpt\b/, /\bmetabolic bone\b/,
+];
+
+// Common medical topics that are OUTSIDE the current module.
+const OUTSIDE_MEDICAL_TERMS: readonly RegExp[] = [
+  /\bdiabet\w*/, /\bketoacidosis\b/, /\bdka\b/, /\binsulin\b/, /\bglucose\b/,
+  /\bthyroid\b/, /\bhyperthyroid\w*/, /\bhypothyroid\w*/, /\bgoit\w*/,
+  /\batrial fibrillation\b/, /\barrhythmia\b/, /\baf\b/, /\btachycard\w*/,
+  /\bhypertension\b/, /\bblood pressure\b/, /\basthma\b/, /\bcopd\b/,
+  /\bpneumonia\b/, /\bmyocard\w*/, /\bheart attack\b/, /\bangina\b/,
+  /\bstroke\b/, /\bsepsis\b/, /\banaemia\b/, /\banemia\b/, /\bleukaemia\b/,
+  /\bleukemia\b/, /\blymphoma\b/, /\bcovid\b/, /\binfluenza\b/, /\bflu\b/,
+  /\bmigraine\b/, /\bepilepsy\b/, /\bseizure(s)?\b/, /\bdepression\b/,
+  /\bschizophren\w*/, /\bpregnan\w*/, /\bhepatitis\b/, /\bcirrhosis\b/,
+  /\basthma\b/, /\bappendicitis\b/, /\bulcer\b/, /\bcrohn\b/, /\bcolitis\b/,
+];
+
+// Clearly non-medical / unrelated requests.
+const NON_MEDICAL_TERMS: readonly RegExp[] = [
+  /\bweather\b/, /\bjoke(s)?\b/, /\bfootball\b/, /\bsoccer\b/, /\bbasketball\b/,
+  /\bcricket\b/, /\btennis\b/, /\bmovie(s)?\b/, /\bfilm(s)?\b/, /\bsong(s)?\b/,
+  /\bmusic\b/, /\bpolitic\w*/, /\bpresident\b/, /\belection\b/, /\bgovernment\b/,
+  /\bstock(s)?\b/, /\bcrypto\w*/, /\bbitcoin\b/, /\brecipe\b/, /\bcook\w*/,
+  /\bcelebrit\w*/, /\bgame(s)?\b/, /\btravel\b/, /\bholiday\b/, /\bhoroscope\b/,
+  /\bnews\b/, /\bpoem\b/, /\bstory\b/,
+];
+
+export function classifyScope(input: string): ScopeKind | null {
+  const normalized = normalize(input);
+  if (!normalized) return null;
+
+  const hasInModule = IN_MODULE_TERMS.some((re) => re.test(normalized));
+  if (hasInModule) return null;
+
+  if (OUTSIDE_MEDICAL_TERMS.some((re) => re.test(normalized))) {
+    return "medical-outside";
+  }
+  if (NON_MEDICAL_TERMS.some((re) => re.test(normalized))) {
+    return "non-medical";
+  }
+  return null;
+}
+
+const COMPARISON_PATTERNS: readonly RegExp[] = [
+  /\bcompare\b/,
+  /\bcomparison\b/,
+  /\bdifference(s)? between\b/,
+  /\bdifferentiate\b/,
+  /\b(vs\.?|versus)\b/,
+];
+
+export function isComparisonRequest(input: string): boolean {
+  const normalized = normalize(input);
+  return COMPARISON_PATTERNS.some((re) => re.test(normalized));
+}
 
 type ReplyContext = {
-  isFirstTurn: boolean;
   topicLabel?: string | null;
 };
 
-const INTRO =
-  "I'm QuizRX, your endocrinology study partner — I can quiz you with " +
-  "board-style questions and give you instant feedback. This beta focuses on " +
-  "calcium, bone, and parathyroid topics.";
+export function smallTalkReply(kind: SmallTalkKind, ctx: ReplyContext): string {
+  const topic = ctx.topicLabel?.trim() || null;
 
-// How the user actually starts/continues the quiz on this surface.
-function howToProceed(topicLabel?: string | null): string {
-  if (topicLabel) {
-    return `You're on “${topicLabel}”. Just ask for a question — e.g. "next question" or a keyword like "osteoporosis" — and I'll pull one up.`;
+  switch (kind) {
+    case "greeting":
+      return topic
+        ? APPROVED_RESPONSES.greetingTopic(topic)
+        : APPROVED_RESPONSES.greetingNoTopic;
+    case "thanks":
+    case "praise":
+    case "acknowledgement":
+      return topic
+        ? APPROVED_RESPONSES.thanksTopic(topic)
+        : APPROVED_RESPONSES.thanksNoTopic;
+    case "capability":
+      return APPROVED_RESPONSES.capability;
+    case "wellbeing":
+      return APPROVED_RESPONSES.howAreYou;
+    case "identity":
+      return topic
+        ? APPROVED_RESPONSES.greetingTopic(topic)
+        : APPROVED_RESPONSES.capability;
+    case "farewell":
+      return "Thanks for studying with QuizRx. Come back anytime to continue with the Calcium & Bone module.";
+    case "chitchat":
+      // Casual / off-topic chatter is treated as an unrelated-scope request.
+      return APPROVED_RESPONSES.nonMedical;
+    default:
+      return APPROVED_RESPONSES.capability;
   }
-  return "Pick a topic from Explore Topics below, then ask for a question to begin.";
 }
 
-export function smallTalkReply(
-  kind: SmallTalkKind,
-  ctx: ReplyContext
-): string {
-  const proceed = howToProceed(ctx.topicLabel);
-
-  if (kind === "greeting") {
-    if (ctx.isFirstTurn) {
-      const opener = pick(["Hi!", "Hello!", "Hey there!"]);
-      return `${opener} ${INTRO} ${proceed}`;
-    }
-    return pick([
-      `Ready when you are — ${proceed}`,
-      "Hello again! Ask for the next question whenever you like.",
-      `Hi! ${proceed}`,
-    ]);
-  }
-
-  if (kind === "thanks") {
-    return pick([
-      "You're welcome! Ask for another question whenever you're ready.",
-      "Anytime! Want to keep going? Just ask for the next question.",
-      "Glad that helped! Ready for the next one whenever you are.",
-    ]);
-  }
-
-  if (kind === "farewell") {
-    return pick([
-      "Take care! Come back anytime to keep practicing calcium & bone questions.",
-      "Bye for now — good luck with your studying!",
-      "See you next time. Keep up the great work!",
-    ]);
-  }
-
-  if (kind === "wellbeing") {
-    return pick([
-      `I'm doing great, thanks for asking! Ready when you are — ${proceed}`,
-      `All good on my end! ${proceed}`,
-      `Doing well, thank you! ${proceed}`,
-    ]);
-  }
-
-  if (kind === "identity") {
-    return pick([
-      `I'm QuizRX, an AI study assistant for endocrinology — not a person, but I'm good at quizzing you and explaining calcium, bone, and parathyroid topics. ${proceed}`,
-      `I'm QuizRX, an AI built to help you prep for endocrinology exams. ${proceed}`,
-      `I'm QuizRX — an AI, not a human. My job is helping you practice endocrinology. ${proceed}`,
-    ]);
-  }
-
-  if (kind === "praise") {
-    return pick([
-      "Thank you — that means a lot! Ready for the next question whenever you are.",
-      "Aw, thanks! Glad it's helping. Ask for another whenever you like.",
-      "Appreciate it! Let's keep the momentum going — just ask for the next question.",
-    ]);
-  }
-
-  if (kind === "acknowledgement") {
-    return pick([
-      "Great — just ask for the next question whenever you're ready.",
-      "Perfect. Say the word and I'll pull up the next one.",
-      "Sounds good! Ready when you are.",
-    ]);
-  }
-
-  if (kind === "chitchat") {
-    return pick([
-      `Ha! I'll leave the jokes to the comedians — I'm all about endocrinology. ${proceed}`,
-      `That's a little outside my wheelhouse — I focus on endocrinology study. ${proceed}`,
-      `I'm not much of a small-talker, but I'm great at quizzing you. ${proceed}`,
-    ]);
-  }
-
-  // capability
-  return `${INTRO} ${proceed}`;
+export function scopeReply(kind: ScopeKind): string {
+  return kind === "medical-outside"
+    ? APPROVED_RESPONSES.medicalOutside
+    : APPROVED_RESPONSES.nonMedical;
 }

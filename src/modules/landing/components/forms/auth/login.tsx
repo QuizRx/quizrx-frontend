@@ -6,6 +6,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/core/components/ui/form";
 import { Input } from "@/core/components/ui/input";
@@ -111,6 +112,7 @@ export function LoginForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem className="w-full">
+                    <FormLabel htmlFor="email">Email address</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -131,6 +133,7 @@ export function LoginForm() {
                 name="password"
                 render={({ field }) => (
                   <FormItem className="w-full">
+                    <FormLabel htmlFor="password">Password</FormLabel>
                     <FormControl>
                       <div className="flex gap-1">
                         <Input
@@ -169,7 +172,7 @@ export function LoginForm() {
             </motion.div>
             <motion.div variants={staggerUpAnimation}>
               <Button type="submit" className="w-full" loading={isSubmitting}>
-                Login
+                Sign In
               </Button>
             </motion.div>
           </motion.form>

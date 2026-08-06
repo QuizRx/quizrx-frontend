@@ -8,9 +8,8 @@ const ALLOWED_PREFIXES = [
   "/chat",
   "/admin",
   "/about-us",
-  "/contact",
+  "/feedback",
   "/privacy-policy",
-  "/cookies-policy",
 ];
 
 const ALLOWED_EXACT = new Set(["/"]);
@@ -19,6 +18,8 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   "/dashboard": "/chat",
   "/pricing": "/",
   "/subscribe": "/",
+  "/contact": "/feedback",
+  "/cookies-policy": "/privacy-policy",
 };
 
 export function middleware(req: NextRequest) {

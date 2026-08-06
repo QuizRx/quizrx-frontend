@@ -13,7 +13,7 @@ import { CALCIUM_BONE_CHAINS, findChainById } from "../data/chains";
 type TopicDropdownProps = {
   className?: string;
   selectedChainId: string | null;
-  onSelectChain: (chainId: string) => void;
+  onSelectChain: (chainId: string | null) => void;
 };
 
 export function TopicDropdown({
@@ -33,15 +33,26 @@ export function TopicDropdown({
             className
           )}
         >
-          <span>{selected ? selected.label : "Explore Topics"}</span>
+          <span>{selected ? selected.label : "Choose Topic"}</span>
           <ChevronDown className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-72 rounded-xl border border-zinc-200 bg-white p-1 shadow-xl"
+        className="max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl"
       >
+        <DropdownMenuItem
+          onSelect={() => onSelectChain(null)}
+          className={cn(
+            "cursor-pointer rounded-lg px-3 py-2 text-sm",
+            !selectedChainId
+              ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+              : "text-zinc-700 hover:bg-zinc-100"
+          )}
+        >
+          None
+        </DropdownMenuItem>
         {CALCIUM_BONE_CHAINS.map((chain) => {
           const isActive = chain.chainId === selectedChainId;
           return (

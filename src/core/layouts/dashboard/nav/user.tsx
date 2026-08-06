@@ -66,9 +66,9 @@ export function NavUser({
       url: "/about-us",
     },
     {
-      label: "Contact",
+      label: "Feedback",
       icon: Mail,
-      url: "/contact",
+      url: "/feedback",
     },
     {
       label: "Privacy notice",

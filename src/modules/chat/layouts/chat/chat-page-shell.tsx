@@ -6,15 +6,19 @@ import { Button } from "@/core/components/ui/button";
 import { toast } from "@/core/hooks/use-toast";
 import { cn } from "@/core/lib/utils";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
-import {
-  findChainById,
-  TopicDropdown,
-} from "@/modules/extraction-quiz";
+import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
+import { TopicChangeDialog } from "@/modules/extraction-quiz/components/topic-change-dialog";
 import { useExtractionQuiz } from "@/modules/extraction-quiz/hooks/use-extraction-quiz";
 import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+import type { ExtractionEntry } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+import { useArchivedSessionsStore } from "@/modules/extraction-quiz/store/archived-sessions-store";
 import {
+  APPROVED_RESPONSES,
+  classifyScope,
   classifySmallTalk,
+  isComparisonRequest,
+  scopeReply,
   smallTalkReply,
 } from "@/modules/extraction-quiz/utils/small-talk";
 import {
@@ -27,18 +31,35 @@ type ChatPageShellProps = {
   showWelcomeWhenEmpty?: boolean;
 };
 
+const DONT_ASK_KEY = "quizrx-topic-change-dont-ask";
+
+const deriveSessionTitle = (
+  entries: ExtractionEntry[],
+  chainId: string | null
+): string => {
+  const firstPrompt = entries.find((e) => e.kind === "user-prompt");
+  if (firstPrompt && firstPrompt.kind === "user-prompt") {
+    const text = firstPrompt.content.trim();
+    if (text) return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  }
+  return findChainById(chainId)?.label ?? "Study session";
+};
+
 export function ChatPageShell({
   showWelcomeWhenEmpty = false,
 }: ChatPageShellProps) {
   const { isChatSidebarOpen } = useChatSidebar();
   const entries = useExtractionQuizStore((s) => s.entries);
+  const sessionId = useExtractionQuizStore((s) => s.sessionId);
   const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
   const setSelectedChainId = useExtractionQuizStore(
     (s) => s.setSelectedChainId
   );
+  const resetSession = useExtractionQuizStore((s) => s.resetSession);
   const appendUserPrompt = useExtractionQuizStore((s) => s.appendUserPrompt);
   const appendAssistant = useExtractionQuizStore((s) => s.appendAssistant);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
+  const archiveSession = useArchivedSessionsStore((s) => s.archive);
   const { fetchQuestion, warmChain } = useExtractionQuiz();
   const isWarmingPool = useChainPoolLoading(selectedChainId);
   const poolWarmedAt = useChainPoolWarmedAt(selectedChainId);
@@ -47,6 +68,21 @@ export function ChatPageShell({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
 
+  // Topic-change session dialog (A-11).
+  const [pendingTopic, setPendingTopic] = useState<{
+    chainId: string | null;
+  } | null>(null);
+  const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDontAskAgain(localStorage.getItem(DONT_ASK_KEY) === "1");
+    } catch {
+      // ignore storage access errors (private mode, etc.)
+    }
+  }, []);
+
   useEffect(() => {
     if (entries.length > 0 && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -54,8 +90,6 @@ export function ChatPageShell({
   }, [entries.length, isFetching]);
 
   // Kick off (or top up) the content-aware pool for the selected chain.
-  // warmChain is a no-op when the pool is already loaded or in flight, so
-  // it's safe to fire on every selection change.
   useEffect(() => {
     if (!selectedChainId) return;
     void warmChain(selectedChainId);
@@ -63,34 +97,92 @@ export function ChatPageShell({
 
   const hasEntries = entries.length > 0;
   const shouldShowWelcome = showWelcomeWhenEmpty && !hasEntries;
+  const selectedLabel = findChainById(selectedChainId)?.label ?? null;
+  const bottomPlaceholder = selectedLabel
+    ? `Ask anything about ${selectedLabel}...`
+    : "Ask QuizRx anything...";
+
+  // Topic selection with the approved session choice (A-11). When there is no
+  // active session (or the user opted out of the prompt) we apply immediately.
+  const handleSelectChain = (chainId: string | null) => {
+    if (chainId === selectedChainId) return;
+    if (!hasEntries || dontAskAgain) {
+      setSelectedChainId(chainId);
+      return;
+    }
+    setPendingTopic({ chainId });
+    setTopicDialogOpen(true);
+  };
+
+  const handleContinueHere = () => {
+    if (pendingTopic) setSelectedChainId(pendingTopic.chainId);
+    setPendingTopic(null);
+    setTopicDialogOpen(false);
+  };
+
+  const handleStartNewSession = () => {
+    const target = pendingTopic?.chainId ?? null;
+    // Preserve the current session in History before starting a fresh one.
+    archiveSession({
+      sessionId,
+      title: deriveSessionTitle(entries, selectedChainId),
+      chainId: selectedChainId,
+      entries,
+    });
+    resetSession();
+    setSelectedChainId(target);
+    setPendingTopic(null);
+    setTopicDialogOpen(false);
+  };
+
+  const handleDontAskAgainChange = (value: boolean) => {
+    setDontAskAgain(value);
+    try {
+      if (value) localStorage.setItem(DONT_ASK_KEY, "1");
+      else localStorage.removeItem(DONT_ASK_KEY);
+    } catch {
+      // ignore storage access errors
+    }
+  };
 
   const runPrompt = async (prompt: string) => {
     const text = prompt.trim();
     if (!text || isFetching) return;
 
-    // Small-talk ("hi", "thanks", "bye", "what can you do") gets a conversational
-    // reply instead of consuming a question. Handled before the topic check so a
-    // greeting works even when no topic is selected yet.
+    const topicLabel = findChainById(selectedChainId)?.label ?? null;
+
+    // 1. Small talk → warm conversational reply, no question generated.
     const smallTalkKind = classifySmallTalk(text);
     if (smallTalkKind) {
-      const isFirstTurn = !entries.some(
-        (e) => e.kind === "assistant" || e.kind === "attempt"
-      );
       appendUserPrompt(text);
-      appendAssistant(
-        smallTalkReply(smallTalkKind, {
-          isFirstTurn,
-          topicLabel: findChainById(selectedChainId)?.label ?? null,
-        })
-      );
+      appendAssistant(smallTalkReply(smallTalkKind, { topicLabel }));
       return;
     }
 
+    // 2. Outside QuizRx scope → approved redirect, no question generated.
+    const scope = classifyScope(text);
+    if (scope) {
+      appendUserPrompt(text);
+      appendAssistant(scopeReply(scope));
+      return;
+    }
+
+    // 3. Comparison request → approved redirect, then a comparison-style
+    //    question in the current topic when one is selected.
+    if (isComparisonRequest(text)) {
+      appendUserPrompt(text);
+      appendAssistant(APPROVED_RESPONSES.comparisonRedirect);
+      if (selectedChainId) {
+        await fetchQuestion(selectedChainId, { userPrompt: text });
+      }
+      return;
+    }
+
+    // 4. QuizRx learning action.
     if (!selectedChainId) {
       toast({
-        title: "Pick a topic",
-        description:
-          "Choose a topic from the Explore Topics dropdown to begin.",
+        title: "Choose a topic",
+        description: "Choose a topic from the Choose Topic menu to begin.",
       });
       return;
     }
@@ -106,7 +198,7 @@ export function ChatPageShell({
   };
 
   return (
-    <div className="relative flex flex-col overflow-hidden h-[100vh]">
+    <div className="relative flex flex-col overflow-hidden h-full">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0 bg-white/55"
@@ -115,13 +207,13 @@ export function ChatPageShell({
         aria-hidden
         src="/chatBG.png"
         alt=""
-        className="pointer-events-none absolute bottom-0 left-72 z-1 h-auto w-[280px] max-w-[40vw] select-none object-contain sm:w-[360px] md:w-[440px] lg:w-[520px]"
+        className="pointer-events-none absolute bottom-0 left-72 z-1 h-auto w-[220px] max-w-[32vw] select-none object-contain opacity-90 sm:w-[280px] md:w-[340px] lg:w-[400px]"
       />
 
       <div
         className={cn(
           "relative z-10 flex flex-1 flex-col min-h-0 transition-all duration-500",
-          isChatSidebarOpen ? "lg:pl-[300px]" : "",
+          isChatSidebarOpen ? "lg:pl-[300px]" : ""
         )}
       >
         <div
@@ -135,7 +227,7 @@ export function ChatPageShell({
           {shouldShowWelcome ? (
             <WelcomeHeader
               selectedChainId={selectedChainId}
-              onSelectChain={setSelectedChainId}
+              onSelectChain={handleSelectChain}
               onPrompt={runPrompt}
               isBusy={isFetching}
             />
@@ -150,7 +242,7 @@ export function ChatPageShell({
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
-            isChatSidebarOpen ? "lg:pl-[316px]" : "",
+            isChatSidebarOpen ? "lg:pl-[316px]" : ""
           )}
           style={{
             paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
@@ -159,8 +251,7 @@ export function ChatPageShell({
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-2 text-xs text-zinc-500">
-                {findChainById(selectedChainId)?.label ??
-                  "No topic selected yet"}
+                {selectedLabel ?? "No topic selected yet"}
                 {selectedChainId && isWarmingPool && !poolWarmedAt && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]">
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -170,7 +261,7 @@ export function ChatPageShell({
               </span>
               <TopicDropdown
                 selectedChainId={selectedChainId}
-                onSelectChain={setSelectedChainId}
+                onSelectChain={handleSelectChain}
               />
             </div>
             <div className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-white p-2">
@@ -183,7 +274,7 @@ export function ChatPageShell({
                     handleSend();
                   }
                 }}
-                placeholder="Ask me to generate questions or test you."
+                placeholder={bottomPlaceholder}
                 rows={1}
                 disabled={isFetching}
                 className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
@@ -205,6 +296,14 @@ export function ChatPageShell({
           </div>
         </div>
       )}
+
+      <TopicChangeDialog
+        open={topicDialogOpen}
+        onOpenChange={setTopicDialogOpen}
+        onStartNewSession={handleStartNewSession}
+        onContinueHere={handleContinueHere}
+        onDontAskAgainChange={handleDontAskAgainChange}
+      />
     </div>
   );
 }
@@ -258,7 +357,7 @@ function ChatThreadView() {
         <div className="flex justify-start mb-4">
           <div className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
             <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
-            Fetching question...
+            Preparing question...
           </div>
         </div>
       )}

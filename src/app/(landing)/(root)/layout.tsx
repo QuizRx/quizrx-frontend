@@ -9,9 +9,9 @@ export default function HomeLayout({
   children: React.ReactNode;
 }>) {
   // Note: we deliberately do NOT redirect authenticated users at the layout
-  // level. Logged-in users need to be able to visit /about-us, /contact,
-  // /privacy-policy, /cookies-policy, etc. Only the root "/" page itself
-  // redirects authenticated users to /chat.
+  // level. Logged-in users need to be able to visit /about-us, /feedback,
+  // /privacy-policy, etc. Only the root "/" page itself redirects
+  // authenticated users to /chat.
   return (
     <div className="relative flex min-h-screen flex-col bg-[var(--background)]">
       <Navbar />

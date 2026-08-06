@@ -18,8 +18,9 @@ export default function Page() {
 
           <div className="text-center">
             <h1 className="text-xl font-bold mb-3">Great to see you again!</h1>
-            <p className="text-md font-normal">
-              Continue your studying journey
+            <p className="text-md font-normal">Continue your learning journey.</p>
+            <p className="mt-3 inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/25 px-3 py-1 text-xs font-medium text-[var(--primary)]">
+              Closed Beta • Registered testers only
             </p>
           </div>
         </div>

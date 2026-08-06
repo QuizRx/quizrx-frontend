@@ -12,7 +12,6 @@ export type ExtractionAttempt = {
   question: ExtractionQuestionData;
   selectedIndex: number | null;
   isCorrect: boolean | null;
-  rating: "up" | "down" | null;
   feedbackSubmitted: boolean;
   freeText: string;
   createdAt: number;
@@ -72,7 +71,6 @@ interface ExtractionQuizActions {
     question: ExtractionQuestionData
   ) => ExtractionAttempt;
   recordAnswer: (attemptId: string, selectedIndex: number) => void;
-  recordRating: (attemptId: string, rating: "up" | "down" | null) => void;
   recordFreeText: (attemptId: string, freeText: string) => void;
   markFeedbackSubmitted: (attemptId: string) => void;
   setIsFetching: (value: boolean) => void;
@@ -193,7 +191,6 @@ export const useExtractionQuizStore = create<
             question,
             selectedIndex: null,
             isCorrect: null,
-            rating: null,
             feedbackSubmitted: false,
             freeText: "",
             createdAt: Date.now(),
@@ -229,18 +226,6 @@ export const useExtractionQuizStore = create<
                 },
               };
             }),
-          })),
-
-        recordRating: (attemptId, rating) =>
-          set((state) => ({
-            entries: state.entries.map((entry) =>
-              entry.kind === "attempt" && entry.attempt.id === attemptId
-                ? {
-                    ...entry,
-                    attempt: { ...entry.attempt, rating },
-                  }
-                : entry
-            ),
           })),
 
         recordFreeText: (attemptId, freeText) =>
