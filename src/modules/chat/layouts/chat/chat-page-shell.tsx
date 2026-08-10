@@ -3,28 +3,25 @@
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/core/components/ui/button";
-import { toast } from "@/core/hooks/use-toast";
 import { cn } from "@/core/lib/utils";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
 import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
 import { TopicChangeDialog } from "@/modules/extraction-quiz/components/topic-change-dialog";
-import { useExtractionQuiz } from "@/modules/extraction-quiz/hooks/use-extraction-quiz";
+import { useLearningAction } from "@/modules/extraction-quiz/hooks/use-learning-action";
+import {
+  learningQuestionToExtractionData,
+  toCurrentOptions,
+} from "@/modules/extraction-quiz/utils/learning-action";
 import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import type { ExtractionEntry } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import { useArchivedSessionsStore } from "@/modules/extraction-quiz/store/archived-sessions-store";
-import {
-  APPROVED_RESPONSES,
-  classifyScope,
-  classifySmallTalk,
-  isComparisonRequest,
-  scopeReply,
-  smallTalkReply,
-} from "@/modules/extraction-quiz/utils/small-talk";
-import {
-  useChainPoolLoading,
-  useChainPoolWarmedAt,
-} from "@/modules/extraction-quiz/store/chain-pool-store";
+import type {
+  LearningActionQuestionPayload,
+  LearningActionResponse,
+  LearningActionTextPayload,
+  LearningExperience,
+} from "@/modules/extraction-quiz/types";
 import { WelcomeHeader } from "./welcome-header";
 
 type ChatPageShellProps = {
@@ -32,6 +29,14 @@ type ChatPageShellProps = {
 };
 
 const DONT_ASK_KEY = "quizrx-topic-change-dont-ask";
+
+// No experience selector in the beta UI yet; default to Practice Studio (the
+// AI-generated MCQ experience shown in the X-01 examples). Change here when an
+// experience toggle is added.
+const DEFAULT_EXPERIENCE: LearningExperience = "practice_studio";
+
+const FRIENDLY_ERROR_TEXT =
+  "Sorry, I couldn't generate a question just now. Please try again.";
 
 const deriveSessionTitle = (
   entries: ExtractionEntry[],
@@ -58,11 +63,12 @@ export function ChatPageShell({
   const resetSession = useExtractionQuizStore((s) => s.resetSession);
   const appendUserPrompt = useExtractionQuizStore((s) => s.appendUserPrompt);
   const appendAssistant = useExtractionQuizStore((s) => s.appendAssistant);
+  const appendSystem = useExtractionQuizStore((s) => s.appendSystem);
+  const appendAttempt = useExtractionQuizStore((s) => s.appendAttempt);
+  const setIsFetching = useExtractionQuizStore((s) => s.setIsFetching);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
   const archiveSession = useArchivedSessionsStore((s) => s.archive);
-  const { fetchQuestion, warmChain } = useExtractionQuiz();
-  const isWarmingPool = useChainPoolLoading(selectedChainId);
-  const poolWarmedAt = useChainPoolWarmedAt(selectedChainId);
+  const runLearningAction = useLearningAction();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -88,12 +94,6 @@ export function ChatPageShell({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [entries.length, isFetching]);
-
-  // Kick off (or top up) the content-aware pool for the selected chain.
-  useEffect(() => {
-    if (!selectedChainId) return;
-    void warmChain(selectedChainId);
-  }, [selectedChainId, warmChain]);
 
   const hasEntries = entries.length > 0;
   const shouldShowWelcome = showWelcomeWhenEmpty && !hasEntries;
@@ -145,49 +145,69 @@ export function ChatPageShell({
     }
   };
 
+  // Render a typed learning-action response (Stage 2 X-01). We switch on
+  // `responseType` only — never on payload shape — and never auto-fetch a
+  // follow-up question after an explanation or review.
+  const handleLearningResponse = (response: LearningActionResponse) => {
+    switch (response.responseType) {
+      case "question": {
+        const payload = response.payload as LearningActionQuestionPayload;
+        const chainId = payload.topic_id ?? selectedChainId ?? "";
+        appendAttempt(chainId, learningQuestionToExtractionData(payload));
+        return;
+      }
+      case "friendly_error": {
+        const payload = response.payload as LearningActionTextPayload;
+        appendSystem(payload?.text ?? FRIENDLY_ERROR_TEXT);
+        return;
+      }
+      // small_talk | scope_redirect | explanation | question_review |
+      // clarification are all text-only assistant replies.
+      default: {
+        const payload = response.payload as LearningActionTextPayload;
+        if (payload?.text) appendAssistant(payload.text);
+        return;
+      }
+    }
+  };
+
   const runPrompt = async (prompt: string) => {
     const text = prompt.trim();
     if (!text || isFetching) return;
 
-    const topicLabel = findChainById(selectedChainId)?.label ?? null;
+    // Snapshot the pre-turn thread so we can derive follow-up context and the
+    // is_first_turn flag before mutating the store.
+    const priorEntries = useExtractionQuizStore.getState().entries;
+    const isFirstTurn = !priorEntries.some((e) => e.kind === "user-prompt");
+    const lastAttempt = [...priorEntries]
+      .reverse()
+      .find(
+        (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
+          e.kind === "attempt"
+      );
+    const currentQuestionId =
+      lastAttempt?.attempt.question.question.dp_id ?? null;
+    const currentOptions = lastAttempt
+      ? toCurrentOptions(lastAttempt.attempt.question.question.choices)
+      : null;
 
-    // 1. Small talk → warm conversational reply, no question generated.
-    const smallTalkKind = classifySmallTalk(text);
-    if (smallTalkKind) {
-      appendUserPrompt(text);
-      appendAssistant(smallTalkReply(smallTalkKind, { topicLabel }));
-      return;
-    }
-
-    // 2. Outside QuizRx scope → approved redirect, no question generated.
-    const scope = classifyScope(text);
-    if (scope) {
-      appendUserPrompt(text);
-      appendAssistant(scopeReply(scope));
-      return;
-    }
-
-    // 3. Comparison request → approved redirect, then a comparison-style
-    //    question in the current topic when one is selected.
-    if (isComparisonRequest(text)) {
-      appendUserPrompt(text);
-      appendAssistant(APPROVED_RESPONSES.comparisonRedirect);
-      if (selectedChainId) {
-        await fetchQuestion(selectedChainId, { userPrompt: text });
-      }
-      return;
-    }
-
-    // 4. QuizRx learning action.
-    if (!selectedChainId) {
-      toast({
-        title: "Choose a topic",
-        description: "Choose a topic from the Choose Topic menu to begin.",
-      });
-      return;
-    }
     appendUserPrompt(text);
-    await fetchQuestion(selectedChainId, { userPrompt: text });
+    setIsFetching(true);
+    try {
+      const response = await runLearningAction({
+        message: text,
+        experience: DEFAULT_EXPERIENCE,
+        topicId: selectedChainId,
+        topicDisplayName: findChainById(selectedChainId)?.label ?? null,
+        sessionId,
+        currentQuestionId,
+        isFirstTurn,
+        currentOptions,
+      });
+      handleLearningResponse(response);
+    } finally {
+      setIsFetching(false);
+    }
   };
 
   const handleSend = async () => {
@@ -252,12 +272,6 @@ export function ChatPageShell({
             <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-2 text-xs text-zinc-500">
                 {selectedLabel ?? "No topic selected yet"}
-                {selectedChainId && isWarmingPool && !poolWarmedAt && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Preparing questions
-                  </span>
-                )}
               </span>
               <TopicDropdown
                 selectedChainId={selectedChainId}
