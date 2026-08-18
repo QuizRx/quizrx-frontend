@@ -1,5 +1,7 @@
 import type {
+  ExplanationSection,
   ExtractionQuestionData,
+  LearningActionExplanationSection,
   LearningActionOption,
   LearningActionQuestionPayload,
 } from "../types";
@@ -17,6 +19,26 @@ export const OPTION_LABELS = ["A", "B", "C", "D", "E"] as const;
 //  - `dp_id` carries the opaque `question_id` so feedback/report keep working;
 //    the frontend never parses it.
 //  - `option_trap_ids` is unknown in this contract, so it's null-filled.
+// Map the wire explanation sections into the render-ready shape. Prose sections
+// keep their body; the "why_others" section becomes a list of per-option
+// explanations keyed by option letter (Final Handoff §8).
+function toExplanationSections(
+  sections: LearningActionExplanationSection[] | undefined
+): ExplanationSection[] | undefined {
+  if (!sections?.length) return undefined;
+  return sections.map((s) => ({
+    id: s.id,
+    heading: s.heading ?? "",
+    body: s.body_markdown?.trim() || undefined,
+    options: s.option_explanations?.length
+      ? s.option_explanations.map((o) => ({
+          option: o.option,
+          text: o.explanation_markdown,
+        }))
+      : undefined,
+  }));
+}
+
 export function learningQuestionToExtractionData(
   payload: LearningActionQuestionPayload
 ): ExtractionQuestionData {
@@ -34,6 +56,8 @@ export function learningQuestionToExtractionData(
       concept_target: "",
       topic: payload.topic_id ?? undefined,
       sub_topic: undefined,
+      format: payload.format === "short_answer" ? "short_answer" : "mcq",
+      explanationSections: toExplanationSections(payload.explanation_sections),
     },
     part2_data: {
       explanation: payload.explanation,

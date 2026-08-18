@@ -90,10 +90,11 @@ export default function AboutUsPage() {
             Our Approach
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-700 md:text-base">
-            We believe meaningful learning comes from thinking, not memorizing.
-            QuizRx is designed to help you work through clinical problems,
-            understand the reasoning behind each answer, and build confidence one
-            question at a time.
+            We believe meaningful learning comes from knowing the facts and
+            knowing how to use them. QuizRx combines focused short-answer
+            practice with curated clinical reasoning questions and detailed
+            explanations, helping you strengthen knowledge, think through
+            decisions, and build confidence one question at a time.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             {FEATURE_CARDS.map((point) => (

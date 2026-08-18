@@ -17,9 +17,9 @@ export const FEATURE_CARDS: readonly FeatureCard[] = [
   },
   {
     icon: Brain,
-    title: "Thoughtful Questions",
+    title: "Two Ways to Learn",
     description:
-      "Practice with AI-assisted questions designed by a board-certified physician to challenge your reasoning - not just your memory.",
+      "Reinforce essential knowledge with short-answer practice in Practice Studio, then apply it through curated clinical reasoning questions in QuizRx Reasoning.",
   },
   {
     icon: MessageSquareHeart,

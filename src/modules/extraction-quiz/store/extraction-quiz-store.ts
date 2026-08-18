@@ -4,7 +4,15 @@ import {
   devtools,
   persist,
 } from "zustand/middleware";
-import type { ExtractionQuestionData } from "../types";
+import type { ExtractionQuestionData, LearningExperience } from "../types";
+
+// Server grade for a Practice Studio short answer (Final Handoff §9). Set after
+// the answer is submitted and graded; drives the review panel on the card.
+export type ExtractionReview = {
+  evaluation: "correct" | "partial" | "incorrect";
+  feedback?: string;
+  idealAnswer?: string;
+};
 
 export type ExtractionAttempt = {
   id: string;
@@ -14,6 +22,8 @@ export type ExtractionAttempt = {
   isCorrect: boolean | null;
   feedbackSubmitted: boolean;
   freeText: string;
+  // Present only for graded Practice Studio short answers.
+  review?: ExtractionReview | null;
   createdAt: number;
 };
 
@@ -50,6 +60,15 @@ export type LoadSessionPayload = {
 
 interface ExtractionQuizState {
   selectedChainId: string | null;
+  // Explicitly-selected learning mode (Final Handoff §6). `null` until the
+  // learner chooses — the app never silently guesses the experience.
+  // "reasoning" = curated MCQ, "practice_studio" = short-answer.
+  experience: LearningExperience | null;
+  // Index into `entries` marking where the current-question context begins.
+  // Switching mode moves this floor to the end of the thread so follow-ups no
+  // longer attach to a question from the previous mode (Final Handoff §6,
+  // "clear the current-question context from the prior mode").
+  contextFloor: number;
   sessionId: string;
   entries: ExtractionEntry[];
   isFetching: boolean;
@@ -63,6 +82,7 @@ interface ExtractionQuizState {
 
 interface ExtractionQuizActions {
   setSelectedChainId: (chainId: string | null) => void;
+  setExperience: (experience: LearningExperience | null) => void;
   appendUserPrompt: (content: string) => void;
   appendSystem: (content: string) => void;
   appendAssistant: (content: string) => void;
@@ -72,6 +92,7 @@ interface ExtractionQuizActions {
   ) => ExtractionAttempt;
   recordAnswer: (attemptId: string, selectedIndex: number) => void;
   recordFreeText: (attemptId: string, freeText: string) => void;
+  recordReview: (attemptId: string, review: ExtractionReview) => void;
   markFeedbackSubmitted: (attemptId: string) => void;
   setIsFetching: (value: boolean) => void;
   setError: (error: string | null) => void;
@@ -137,6 +158,8 @@ export const useExtractionQuizStore = create<
     persist(
       (set, get) => ({
         selectedChainId: null,
+        experience: null,
+        contextFloor: 0,
         sessionId: generateId(),
         entries: [],
         isFetching: false,
@@ -144,6 +167,15 @@ export const useExtractionQuizStore = create<
         chainProgress: {},
 
         setSelectedChainId: (chainId) => set({ selectedChainId: chainId }),
+
+        // Switching mode preserves the topic but clears the current-question
+        // context so the next turn doesn't echo a question from the old mode.
+        setExperience: (experience) =>
+          set((state) =>
+            experience === state.experience
+              ? { experience }
+              : { experience, contextFloor: state.entries.length }
+          ),
 
         appendUserPrompt: (content) =>
           set((state) => ({
@@ -240,6 +272,18 @@ export const useExtractionQuizStore = create<
             ),
           })),
 
+        recordReview: (attemptId, review) =>
+          set((state) => ({
+            entries: state.entries.map((entry) =>
+              entry.kind === "attempt" && entry.attempt.id === attemptId
+                ? {
+                    ...entry,
+                    attempt: { ...entry.attempt, review },
+                  }
+                : entry
+            ),
+          })),
+
         markFeedbackSubmitted: (attemptId) =>
           set((state) => ({
             entries: state.entries.map((entry) =>
@@ -264,6 +308,7 @@ export const useExtractionQuizStore = create<
           set({
             entries: [],
             selectedChainId: null,
+            contextFloor: 0,
             sessionId: generateId(),
             isFetching: false,
             error: null,
@@ -279,6 +324,7 @@ export const useExtractionQuizStore = create<
             sessionId: payload.sessionId,
             selectedChainId: payload.chainId,
             entries: payload.entries,
+            contextFloor: 0,
             isFetching: false,
             error: null,
             chainProgress: deriveChainProgressFromEntries(payload.entries),
@@ -306,6 +352,8 @@ export const useExtractionQuizStore = create<
         // Don't persist transient UI state.
         partialize: (state) => ({
           selectedChainId: state.selectedChainId,
+          experience: state.experience,
+          contextFloor: state.contextFloor,
           sessionId: state.sessionId,
           entries: state.entries,
           chainProgress: state.chainProgress,

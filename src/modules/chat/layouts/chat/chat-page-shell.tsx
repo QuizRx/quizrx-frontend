@@ -7,6 +7,7 @@ import { cn } from "@/core/lib/utils";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
 import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
+import { ExperienceToggle } from "@/modules/extraction-quiz/components/experience-toggle";
 import { TopicChangeDialog } from "@/modules/extraction-quiz/components/topic-change-dialog";
 import { useLearningAction } from "@/modules/extraction-quiz/hooks/use-learning-action";
 import {
@@ -20,7 +21,6 @@ import type {
   LearningActionQuestionPayload,
   LearningActionResponse,
   LearningActionTextPayload,
-  LearningExperience,
 } from "@/modules/extraction-quiz/types";
 import { WelcomeHeader } from "./welcome-header";
 
@@ -30,13 +30,19 @@ type ChatPageShellProps = {
 
 const DONT_ASK_KEY = "quizrx-topic-change-dont-ask";
 
-// No experience selector in the beta UI yet; default to Practice Studio (the
-// AI-generated MCQ experience shown in the X-01 examples). Change here when an
-// experience toggle is added.
-const DEFAULT_EXPERIENCE: LearningExperience = "practice_studio";
-
 const FRIENDLY_ERROR_TEXT =
   "Sorry, I couldn't generate a question just now. Please try again.";
+
+// Ids of every question already shown this session, so the server avoids
+// repeats (Reasoning) / samples without replacement (Practice Studio).
+const collectSeenQuestionIds = (entries: ExtractionEntry[]): string[] =>
+  entries
+    .filter(
+      (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
+        e.kind === "attempt"
+    )
+    .map((e) => e.attempt.question.question.dp_id)
+    .filter((id): id is string => Boolean(id));
 
 const deriveSessionTitle = (
   entries: ExtractionEntry[],
@@ -67,6 +73,7 @@ export function ChatPageShell({
   const appendAttempt = useExtractionQuizStore((s) => s.appendAttempt);
   const setIsFetching = useExtractionQuizStore((s) => s.setIsFetching);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
+  const experience = useExtractionQuizStore((s) => s.experience);
   const archiveSession = useArchivedSessionsStore((s) => s.archive);
   const runLearningAction = useLearningAction();
 
@@ -177,9 +184,13 @@ export function ChatPageShell({
 
     // Snapshot the pre-turn thread so we can derive follow-up context and the
     // is_first_turn flag before mutating the store.
-    const priorEntries = useExtractionQuizStore.getState().entries;
+    const { entries: priorEntries, contextFloor } =
+      useExtractionQuizStore.getState();
     const isFirstTurn = !priorEntries.some((e) => e.kind === "user-prompt");
-    const lastAttempt = [...priorEntries]
+    // Only echo a current question from the ACTIVE mode. `contextFloor` moves
+    // to the end of the thread when the learner switches mode, so follow-ups
+    // never attach to a question from the previous mode (Final Handoff §6).
+    const lastAttempt = [...priorEntries.slice(contextFloor)]
       .reverse()
       .find(
         (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
@@ -196,13 +207,40 @@ export function ChatPageShell({
     try {
       const response = await runLearningAction({
         message: text,
-        experience: DEFAULT_EXPERIENCE,
+        experience,
         topicId: selectedChainId,
         topicDisplayName: findChainById(selectedChainId)?.label ?? null,
         sessionId,
         currentQuestionId,
         isFirstTurn,
         currentOptions,
+        seenQuestionIds: collectSeenQuestionIds(priorEntries),
+      });
+      handleLearningResponse(response);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  // Explicit "Start a question" / "Next question" action (Final Handoff
+  // routing). No user bubble is added — the loader then the question is enough.
+  const runQuestionAction = async (
+    action: "start_question" | "next_question"
+  ) => {
+    if (isFetching) return;
+    const { entries: priorEntries } = useExtractionQuizStore.getState();
+    const isFirstTurn = !priorEntries.some((e) => e.kind === "user-prompt");
+    setIsFetching(true);
+    try {
+      const response = await runLearningAction({
+        message: "",
+        experience,
+        topicId: selectedChainId,
+        topicDisplayName: findChainById(selectedChainId)?.label ?? null,
+        sessionId,
+        action,
+        seenQuestionIds: collectSeenQuestionIds(priorEntries),
+        isFirstTurn,
       });
       handleLearningResponse(response);
     } finally {
@@ -249,10 +287,13 @@ export function ChatPageShell({
               selectedChainId={selectedChainId}
               onSelectChain={handleSelectChain}
               onPrompt={runPrompt}
+              onStartQuestion={() => runQuestionAction("start_question")}
               isBusy={isFetching}
             />
           ) : (
-            <ChatThreadView />
+            <ChatThreadView
+              onNextQuestion={() => runQuestionAction("next_question")}
+            />
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -273,10 +314,13 @@ export function ChatPageShell({
               <span className="flex items-center gap-2 text-xs text-zinc-500">
                 {selectedLabel ?? "No topic selected yet"}
               </span>
-              <TopicDropdown
-                selectedChainId={selectedChainId}
-                onSelectChain={handleSelectChain}
-              />
+              <div className="flex items-center gap-2">
+                <ExperienceToggle disabled={isFetching} />
+                <TopicDropdown
+                  selectedChainId={selectedChainId}
+                  onSelectChain={handleSelectChain}
+                />
+              </div>
             </div>
             <div className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-white p-2">
               <textarea
@@ -322,9 +366,17 @@ export function ChatPageShell({
   );
 }
 
-function ChatThreadView() {
+function ChatThreadView({
+  onNextQuestion,
+}: {
+  onNextQuestion: () => void;
+}) {
   const entries = useExtractionQuizStore((s) => s.entries);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
+
+  // Offer "Next question" once at least one question has been shown, so the
+  // learner can advance without typing (Final Handoff action-driven flow).
+  const hasAttempt = entries.some((e) => e.kind === "attempt");
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-2 pt-4 sm:px-4">
@@ -373,6 +425,19 @@ function ChatThreadView() {
             <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
             Preparing question...
           </div>
+        </div>
+      )}
+
+      {hasAttempt && !isFetching && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNextQuestion}
+            className="rounded-full border-[var(--primary)]/30 text-[var(--primary)] hover:bg-[var(--primary)]/5"
+          >
+            Next question
+          </Button>
         </div>
       )}
     </div>
