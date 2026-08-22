@@ -74,6 +74,9 @@ export function ChatPageShell({
   const setIsFetching = useExtractionQuizStore((s) => s.setIsFetching);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
   const experience = useExtractionQuizStore((s) => s.experience);
+  // Synchronous lock so rapid double-clicks on Start/Next cannot fire two
+  // learningAction requests before React re-renders with isFetching=true.
+  const actionInFlightRef = useRef(false);
   const archiveSession = useArchivedSessionsStore((s) => s.archive);
   const runLearningAction = useLearningAction();
 
@@ -159,7 +162,13 @@ export function ChatPageShell({
     switch (response.responseType) {
       case "question": {
         const payload = response.payload as LearningActionQuestionPayload;
-        const chainId = payload.topic_id ?? selectedChainId ?? "";
+        // Do not dedupe by question_id here. Reasoning wraps to the same
+        // curated item after a topic is exhausted (some topics have only 1),
+        // and Practice Studio may re-sample. Double-submit is already blocked
+        // by `actionInFlightRef` in runQuestionAction / runPrompt.
+        // Prefer the dropdown concept id (CAL-BONE-*) over payload.topic_id so
+        // history labels and topic routing stay consistent.
+        const chainId = selectedChainId ?? payload.topic_id ?? "";
         appendAttempt(chainId, learningQuestionToExtractionData(payload));
         return;
       }
@@ -180,7 +189,8 @@ export function ChatPageShell({
 
   const runPrompt = async (prompt: string) => {
     const text = prompt.trim();
-    if (!text || isFetching) return;
+    if (!text || actionInFlightRef.current) return;
+    if (useExtractionQuizStore.getState().isFetching) return;
 
     // Snapshot the pre-turn thread so we can derive follow-up context and the
     // is_first_turn flag before mutating the store.
@@ -202,6 +212,7 @@ export function ChatPageShell({
       ? toCurrentOptions(lastAttempt.attempt.question.question.choices)
       : null;
 
+    actionInFlightRef.current = true;
     appendUserPrompt(text);
     setIsFetching(true);
     try {
@@ -218,6 +229,7 @@ export function ChatPageShell({
       });
       handleLearningResponse(response);
     } finally {
+      actionInFlightRef.current = false;
       setIsFetching(false);
     }
   };
@@ -227,13 +239,19 @@ export function ChatPageShell({
   const runQuestionAction = async (
     action: "start_question" | "next_question"
   ) => {
-    if (isFetching) return;
+    if (actionInFlightRef.current) return;
+    if (useExtractionQuizStore.getState().isFetching) return;
     const { entries: priorEntries } = useExtractionQuizStore.getState();
     const isFirstTurn = !priorEntries.some((e) => e.kind === "user-prompt");
+    actionInFlightRef.current = true;
     setIsFetching(true);
     try {
-      const response = await runLearningAction({
-        message: "",
+      // Nest requires a non-empty `message` (class-validator). Action-driven
+      // Start/Next must still send a short placeholder; the server routes on
+      // `action`, not on this text.
+      const input = {
+        message:
+          action === "next_question" ? "next question" : "start a question",
         experience,
         topicId: selectedChainId,
         topicDisplayName: findChainById(selectedChainId)?.label ?? null,
@@ -241,9 +259,18 @@ export function ChatPageShell({
         action,
         seenQuestionIds: collectSeenQuestionIds(priorEntries),
         isFirstTurn,
-      });
+      } as const;
+
+      // One automatic retry: cold-start / brief auth refresh blips after a long
+      // explanation read should not surface the friendly error on first paint.
+      let response = await runLearningAction(input);
+      if (response.responseType === "friendly_error") {
+        await new Promise((r) => setTimeout(r, 800));
+        response = await runLearningAction(input);
+      }
       handleLearningResponse(response);
     } finally {
+      actionInFlightRef.current = false;
       setIsFetching(false);
     }
   };
@@ -377,6 +404,7 @@ function ChatThreadView({
   // Offer "Next question" once at least one question has been shown, so the
   // learner can advance without typing (Final Handoff action-driven flow).
   const hasAttempt = entries.some((e) => e.kind === "attempt");
+  let attemptOrdinal = 0;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-2 pt-4 sm:px-4">
@@ -410,10 +438,15 @@ function ChatThreadView({
           );
         }
 
+        attemptOrdinal += 1;
+        const questionNumber = attemptOrdinal;
         return (
           <div key={entry.id} className="flex justify-start mb-4">
             <div className="w-full max-w-[95%]">
-              <ExtractionQuestionCard attempt={entry.attempt} />
+              <ExtractionQuestionCard
+                attempt={entry.attempt}
+                questionNumber={questionNumber}
+              />
             </div>
           </div>
         );

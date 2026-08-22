@@ -19,10 +19,13 @@ const OPTION_LABELS = ["A", "B", "C", "D", "E"] as const;
 
 type ExtractionQuestionCardProps = {
   attempt: ExtractionAttempt;
+  /** 1-based index among questions in this session (helps distinguish PS items). */
+  questionNumber?: number;
 };
 
 export function ExtractionQuestionCard({
   attempt,
+  questionNumber,
 }: ExtractionQuestionCardProps) {
   const [submitting, setSubmitting] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -171,13 +174,18 @@ export function ExtractionQuestionCard({
     });
   };
 
+  const topicLabel =
+    question.sub_topic ??
+    findChainById(attempt.chainId)?.label ??
+    "Practice question";
+  const headerLabel =
+    questionNumber != null
+      ? `Practice question ${questionNumber}`
+      : topicLabel;
+
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="mb-4 text-sm font-medium text-zinc-500">
-        {question.sub_topic ??
-          findChainById(attempt.chainId)?.label ??
-          "Practice question"}
-      </p>
+      <p className="mb-4 text-sm font-medium text-zinc-500">{headerLabel}</p>
       <h3 className="mb-4 text-base font-medium text-zinc-900 leading-relaxed">
         {question.question}
       </h3>
