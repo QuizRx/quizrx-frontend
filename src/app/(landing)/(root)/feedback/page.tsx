@@ -20,7 +20,7 @@ export default function FeedbackPage() {
             aria-hidden
             className="inline-block h-1 w-10 rounded-full bg-[var(--accent-amber,#E0B16A)]"
           />
-          <h1 className="text-4xl font-semibold leading-tight text-[var(--primary)] md:text-5xl">
+          <h1 className="text-3xl font-semibold leading-tight text-[var(--primary)] sm:text-4xl md:text-5xl">
             Feedback
           </h1>
           <p className="text-base leading-relaxed text-zinc-700 md:text-lg">

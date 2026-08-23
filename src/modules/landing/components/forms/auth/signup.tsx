@@ -155,7 +155,7 @@ export function SignupForm({
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-5"
         >
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             {(["firstName", "lastName"] as const).map((fieldName) => (
               <motion.div
                 key={fieldName}

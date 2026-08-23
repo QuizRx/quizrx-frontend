@@ -24,7 +24,7 @@ export function ExperienceToggle({
       role="radiogroup"
       aria-label="Learning experience"
       className={cn(
-        "inline-flex items-center rounded-full border border-zinc-200 bg-white p-0.5",
+        "flex w-full items-center rounded-full border border-border bg-white p-0.5 sm:inline-flex sm:w-auto",
         className
       )}
     >
@@ -39,7 +39,7 @@ export function ExperienceToggle({
             disabled={disabled}
             onClick={() => setExperience(opt.value)}
             className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+              "flex-1 rounded-full px-3 py-1.5 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 sm:flex-none sm:py-1",
               active
                 ? "bg-[var(--primary)] text-white"
                 : "text-zinc-600 hover:text-[var(--primary)]",

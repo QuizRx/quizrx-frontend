@@ -9,7 +9,7 @@ import { Suspense } from "react";
 export default function Page() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 bg-background p-6 md:p-10  px-8 pb-8 pt-10">
-      <div className="w-full max-w-sm pt-16">
+      <div className="w-full max-w-sm pt-8 sm:pt-16">
         <div className="flex flex-col items-center gap-2 mb-10">
           <Link
             href="/"

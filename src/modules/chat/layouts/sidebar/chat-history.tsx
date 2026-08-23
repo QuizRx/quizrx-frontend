@@ -4,9 +4,8 @@ import { ChatBubbleIcon } from "@radix-ui/react-icons";
 import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion } from "motion/react";
 import { PlusCircle, Trash2, X } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/core/components/ui/button";
-import { useIsMobile } from "@/core/hooks/use-mobile";
 import { cn } from "@/core/lib/utils";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
 import {
@@ -41,7 +40,18 @@ const deriveSessionTitle = (
 
 export function ChatHistorySidebar() {
   const { isChatSidebarOpen, closeChatSidebar } = useChatSidebar();
-  const isMobile = useIsMobile();
+  // The desktop docked panel only appears at lg+ (matching the content's
+  // `lg:pl-[300px]` offset). Below lg — including tablets — the sidebar must
+  // render as an overlay drawer, otherwise toggling it does nothing.
+  const [isOverlay, setIsOverlay] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsOverlay(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const entries = useExtractionQuizStore((s) => s.entries);
   const sessionId = useExtractionQuizStore((s) => s.sessionId);
   const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
@@ -77,12 +87,12 @@ export function ChatHistorySidebar() {
   const handleNewSession = () => {
     archiveCurrentIfNeeded();
     resetSession();
-    if (isMobile) closeChatSidebar();
+    if (isOverlay) closeChatSidebar();
   };
 
   const handleLoadArchived = (archived: ArchivedSession) => {
     if (archived.sessionId === sessionId) {
-      if (isMobile) closeChatSidebar();
+      if (isOverlay) closeChatSidebar();
       return;
     }
     archiveCurrentIfNeeded();
@@ -93,7 +103,7 @@ export function ChatHistorySidebar() {
       chainId: archived.chainId,
       entries: archived.entries,
     });
-    if (isMobile) closeChatSidebar();
+    if (isOverlay) closeChatSidebar();
   };
 
   const handleDeleteArchived = (
@@ -108,7 +118,7 @@ export function ChatHistorySidebar() {
     <AnimatePresence>
       {isChatSidebarOpen && (
         <>
-          {isMobile && (
+          {isOverlay && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -124,8 +134,8 @@ export function ChatHistorySidebar() {
             exit={{ x: "-100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className={cn(
-              "border-r border-zinc-200 bg-white/80 backdrop-blur-md",
-              isMobile
+              "border-r border-border bg-white/80 backdrop-blur-md",
+              isOverlay
                 ? "fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] shadow-xl"
                 : "fixed left-0 top-[56px] bottom-0 z-30 w-[300px] hidden lg:block"
             )}
@@ -136,7 +146,7 @@ export function ChatHistorySidebar() {
                   <ChatBubbleIcon className="h-4 w-4" />
                   <h2 className="text-sm font-semibold">History</h2>
                 </div>
-                {isMobile && (
+                {isOverlay && (
                   <Button
                     variant="ghost"
                     size="icon"

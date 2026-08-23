@@ -70,9 +70,11 @@ export function AdminChatsTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
-              <TableHead>User ID</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last activity</TableHead>
+              <TableHead className="hidden md:table-cell">User ID</TableHead>
+              <TableHead className="hidden lg:table-cell">Created</TableHead>
+              <TableHead className="hidden lg:table-cell">
+                Last activity
+              </TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
@@ -103,7 +105,7 @@ export function AdminChatsTable() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <span
                       className="font-mono text-xs text-zinc-600"
                       title={t.userId}
@@ -111,10 +113,10 @@ export function AdminChatsTable() {
                       {t.userId.slice(0, 10)}…
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-zinc-500">
+                  <TableCell className="hidden text-xs text-zinc-500 lg:table-cell">
                     {formatDate(t.createdAt)}
                   </TableCell>
-                  <TableCell className="text-xs text-zinc-500">
+                  <TableCell className="hidden text-xs text-zinc-500 lg:table-cell">
                     {formatDate(t.updatedAt)}
                   </TableCell>
                   <TableCell>
@@ -137,7 +139,7 @@ export function AdminChatsTable() {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-zinc-600">
+      <div className="flex flex-col gap-2 text-xs text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
         <span>
           Showing page <span className="font-medium">{page}</span> of{" "}
           <span className="font-medium">{Math.max(1, meta?.lastPage ?? 1)}</span>{" "}

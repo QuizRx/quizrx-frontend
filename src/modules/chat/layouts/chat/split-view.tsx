@@ -24,7 +24,18 @@ export const SplitView = ({
 }: SplitViewProps) => {
   const [leftWidth, setLeftWidth] = useState(defaultLeftWidth);
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Below md, the horizontal split (with 300px min widths per panel) can't fit,
+  // so we stack the two panels vertically instead and disable drag-resize.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -74,6 +85,29 @@ export const SplitView = ({
 
   if (!isOpen) {
     return <div className="w-full h-full overflow-y-auto split-panel-scroll">{leftContent}</div>;
+  }
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col w-full h-full">
+        {/* Top panel */}
+        <div className="flex-1 min-h-0 overflow-y-auto split-panel-scroll border-b">
+          {leftContent}
+        </div>
+
+        {/* Bottom (review) panel */}
+        <div className="flex-1 min-h-0 overflow-y-auto split-panel-scroll relative">
+          <button
+            onClick={onToggle}
+            className="absolute top-4 right-4 bg-background border rounded-full p-2 hover:bg-muted z-10 shadow-sm"
+            title="Close review panel"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          {rightContent}
+        </div>
+      </div>
+    );
   }
 
   return (

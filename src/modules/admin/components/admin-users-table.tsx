@@ -72,10 +72,10 @@ export function AdminUsersTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Email</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead className="hidden md:table-cell">Name</TableHead>
+              <TableHead className="hidden lg:table-cell">Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Joined</TableHead>
+              <TableHead className="hidden lg:table-cell">Joined</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -97,12 +97,14 @@ export function AdminUsersTable() {
             ) : (
               users.map((u) => (
                 <TableRow key={u._id}>
-                  <TableCell className="font-medium">{u.email}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium break-all">
+                    {u.email}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
                     {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
                       "—"}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <span
                       className={cn(
                         "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
@@ -122,7 +124,7 @@ export function AdminUsersTable() {
                       {u.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-zinc-500">
+                  <TableCell className="hidden text-xs text-zinc-500 lg:table-cell">
                     {formatDate(u.createdAt)}
                   </TableCell>
                 </TableRow>
@@ -162,7 +164,7 @@ function PaginationBar({
   loading?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between text-xs text-zinc-600">
+    <div className="flex flex-col gap-2 text-xs text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
       <span>
         Showing page <span className="font-medium">{page}</span> of{" "}
         <span className="font-medium">{Math.max(1, lastPage)}</span> ·{" "}

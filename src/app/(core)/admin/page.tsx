@@ -40,16 +40,16 @@ export default function AdminPage() {
 
       <Tabs defaultValue="users" className="w-full">
         <TabsList className="grid w-full max-w-xl grid-cols-3">
-          <TabsTrigger value="users" className="gap-2">
-            <Users className="h-4 w-4" />
+          <TabsTrigger value="users" className="gap-2 px-2">
+            <Users className="h-4 w-4 shrink-0" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="chats" className="gap-2">
-            <MessageSquare className="h-4 w-4" />
+          <TabsTrigger value="chats" className="gap-2 px-2">
+            <MessageSquare className="h-4 w-4 shrink-0" />
             Chats
           </TabsTrigger>
-          <TabsTrigger value="feedback" className="gap-2">
-            <MessagesSquare className="h-4 w-4" />
+          <TabsTrigger value="feedback" className="gap-2 px-2">
+            <MessagesSquare className="h-4 w-4 shrink-0" />
             Feedback
           </TabsTrigger>
         </TabsList>

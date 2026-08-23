@@ -152,7 +152,7 @@ export function AdminFeedbackTable() {
               Showing your own feedback only — cross-user feedback needs a
               backend deploy.
             </p>
-            <p className="mt-1 text-amber-800">
+            <p className="mt-1 break-words text-amber-800">
               The deployed backend doesn&apos;t know about{" "}
               <code className="rounded bg-amber-100 px-1">getAllFeedback</code>{" "}
               yet, so this tab has fallen back to the existing{" "}
@@ -177,7 +177,7 @@ export function AdminFeedbackTable() {
           value={categoryFilter}
           onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
@@ -196,7 +196,7 @@ export function AdminFeedbackTable() {
           value={ratingFilter}
           onValueChange={(v) => setRatingFilter(v as RatingFilter)}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue placeholder="Any rating" />
           </SelectTrigger>
           <SelectContent>
@@ -228,11 +228,11 @@ export function AdminFeedbackTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Rating</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead className="hidden sm:table-cell">Category</TableHead>
               <TableHead>Message</TableHead>
-              <TableHead>Page</TableHead>
-              <TableHead>User ID</TableHead>
-              <TableHead>Submitted</TableHead>
+              <TableHead className="hidden lg:table-cell">Page</TableHead>
+              <TableHead className="hidden lg:table-cell">User ID</TableHead>
+              <TableHead className="hidden md:table-cell">Submitted</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -291,7 +291,7 @@ function FeedbackRow({ feedback: f }: { feedback: ProdFeedbackRow }) {
           {f.rating}
         </span>
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden sm:table-cell">
         <span
           className={cn(
             "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
@@ -313,16 +313,16 @@ function FeedbackRow({ feedback: f }: { feedback: ProdFeedbackRow }) {
           <span className="text-xs text-zinc-400">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         {f.pagePath ? (
-          <span className="font-mono text-xs text-zinc-600">
+          <span className="font-mono text-xs text-zinc-600 break-all">
             {f.pagePath}
           </span>
         ) : (
           <span className="text-xs text-zinc-400">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="hidden lg:table-cell">
         <span
           className="font-mono text-xs text-zinc-600"
           title={f.userId}
@@ -330,7 +330,7 @@ function FeedbackRow({ feedback: f }: { feedback: ProdFeedbackRow }) {
           {f.userId.length > 10 ? `${f.userId.slice(0, 10)}…` : f.userId}
         </span>
       </TableCell>
-      <TableCell className="text-xs text-zinc-500">
+      <TableCell className="hidden text-xs text-zinc-500 md:table-cell">
         {formatDate(f.createdAt)}
       </TableCell>
     </TableRow>
@@ -353,7 +353,7 @@ function PaginationBar({
   loading?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between text-xs text-zinc-600">
+    <div className="flex flex-col gap-2 text-xs text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
       <span>
         Showing page <span className="font-medium">{page}</span> of{" "}
         <span className="font-medium">{Math.max(1, lastPage)}</span> ·{" "}

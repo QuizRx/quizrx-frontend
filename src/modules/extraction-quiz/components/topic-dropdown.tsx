@@ -29,12 +29,12 @@ export function TopicDropdown({
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-2 rounded-full border border-[var(--primary)] bg-white px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+            "flex w-full items-center justify-between gap-2 rounded-full border border-[var(--primary)] bg-white px-4 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 sm:w-auto sm:justify-center",
             className
           )}
         >
-          <span>{selected ? selected.label : "Choose Topic"}</span>
-          <ChevronDown className="h-4 w-4" />
+          <span className="truncate">{selected ? selected.label : "Choose Topic"}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

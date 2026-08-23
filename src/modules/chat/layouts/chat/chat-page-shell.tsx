@@ -292,7 +292,7 @@ export function ChatPageShell({
         aria-hidden
         src="/chatBG.png"
         alt=""
-        className="pointer-events-none absolute bottom-0 left-72 z-1 h-auto w-[220px] max-w-[32vw] select-none object-contain opacity-90 sm:w-[280px] md:w-[340px] lg:w-[400px]"
+        className="pointer-events-none absolute bottom-0 left-4 z-1 hidden h-auto w-[220px] max-w-[32vw] select-none object-contain opacity-90 sm:block sm:left-72 sm:w-[280px] md:w-[340px] lg:w-[400px]"
       />
 
       <div
@@ -337,11 +337,11 @@ export function ChatPageShell({
           }}
         >
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-2 text-xs text-zinc-500">
                 {selectedLabel ?? "No topic selected yet"}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                 <ExperienceToggle disabled={isFetching} />
                 <TopicDropdown
                   selectedChainId={selectedChainId}

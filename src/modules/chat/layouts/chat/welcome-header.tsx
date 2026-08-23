@@ -135,7 +135,7 @@ export const WelcomeHeader = ({
               className="w-full resize-none bg-transparent px-1 text-base leading-relaxed text-zinc-800 outline-none placeholder:text-zinc-400"
             />
 
-            <div className="mt-2 flex items-center justify-between gap-3">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-xs text-zinc-400">
                 Press Enter to send · Shift + Enter for a new line
               </span>
@@ -145,7 +145,7 @@ export const WelcomeHeader = ({
                 disabled={!canSend}
                 aria-label="Send"
                 className={cn(
-                  "inline-flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
+                  "inline-flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full bg-[var(--primary)] text-white shadow-sm transition-all hover:bg-[var(--primary)]/90 sm:self-auto",
                   !canSend && "opacity-50"
                 )}
               >

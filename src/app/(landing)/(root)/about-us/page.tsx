@@ -27,7 +27,7 @@ export default function AboutUsPage() {
             <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
               Beta
             </span>
-            <h1 className="text-4xl font-semibold leading-tight text-[var(--primary)] md:text-5xl">
+            <h1 className="text-3xl font-semibold leading-tight text-[var(--primary)] sm:text-4xl md:text-5xl">
               About QuizRx
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-zinc-700 md:text-lg">
