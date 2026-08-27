@@ -57,7 +57,8 @@ interface ChatActions {
   handleSubmit: (
     message: string,
     authToken?: string,
-    onThreadCreated?: (threadId: string) => void
+    onThreadCreated?: (threadId: string) => void,
+    selectedTopic?: string
   ) => void;
   resetChat: () => void;
   createThread: (
@@ -65,7 +66,8 @@ interface ChatActions {
     title?: string,
     description?: string,
     authToken?: string,
-    onThreadCreated?: (threadId: string) => void
+    onThreadCreated?: (threadId: string) => void,
+    selectedTopic?: string
   ) => Promise<void>;
   fetchAvailableThreads: () => Promise<void>;
   loadThread: (threadId: string) => Promise<boolean>;
@@ -213,7 +215,8 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
     function callSSEConnection(
       threadId: string,
       message: string,
-      authToken: string | undefined
+      authToken: string | undefined,
+      selectedTopic?: string
     ) {
       const baseApiUrl = process.env.NEXT_PUBLIC_API_URL!;
       const controller = new AbortController();
@@ -245,6 +248,7 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
         body: JSON.stringify({
           threadId,
           content: message,
+          selectedTopic: selectedTopic ?? null,
         }),
         signal: controller.signal,
 
@@ -535,7 +539,8 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
       handleSubmit: async (
         message: string,
         authToken?: string,
-        onThreadCreated?: (threadId: string) => void
+        onThreadCreated?: (threadId: string) => void,
+        selectedTopic?: string
       ) => {
         try {
           if (!get().isChatStarted) {
@@ -558,7 +563,8 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
                 undefined,
                 undefined,
                 authToken,
-                onThreadCreated
+                onThreadCreated,
+                selectedTopic
               );
               return;
             } catch (error) {
@@ -596,7 +602,7 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
           }));
 
           // Start modular SSE connection
-          callSSEConnection(threadId, message, authToken);
+          callSSEConnection(threadId, message, authToken, selectedTopic);
         } catch (error) {
           console.error("Error in handleSubmit:", error);
           set({ isLoading: false, isStreaming: false });
@@ -623,7 +629,8 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
         title?: string,
         description?: string,
         authToken?: string,
-        onThreadCreated?: (threadId: string) => void
+        onThreadCreated?: (threadId: string) => void,
+        selectedTopic?: string
       ) => {
         try {
           set({ isLoading: true });
@@ -686,7 +693,12 @@ export const useChatStore = create<ChatState & ChatActions & {}>()(
             onThreadCreated?.(newThread._id);
 
             // Start modular SSE connection for initial message
-            callSSEConnection(newThread._id, initialMessage, authToken);
+            callSSEConnection(
+              newThread._id,
+              initialMessage,
+              authToken,
+              selectedTopic
+            );
           } else {
             throw new Error("Failed to create thread - no data returned");
           }
@@ -1202,11 +1214,14 @@ export const useChat = () => {
   // Default navigation callback fired right after a new thread is created.
   // The chat URL becomes the source of truth so refreshes/shares work.
   const navigateToThread = (threadId: string) => {
-    router.push(`/dashboard/chat/${threadId}`);
+    router.push(`/chat/${threadId}`);
   };
 
   // Wrap handleSubmit to include auth token - ALWAYS GET FRESH TOKEN
-  const handleSubmitWithAuth = async (message: string) => {
+  const handleSubmitWithAuth = async (
+    message: string,
+    selectedTopic?: string
+  ) => {
     if (!token) {
       console.error("No auth token available");
       return;
@@ -1216,14 +1231,20 @@ export const useChat = () => {
     const freshToken = await refreshToken() || token;
 
     const store = useChatStore.getState();
-    return store.handleSubmit(message, freshToken, navigateToThread);
+    return store.handleSubmit(
+      message,
+      freshToken,
+      navigateToThread,
+      selectedTopic
+    );
   };
 
   // Wrap createThread to include auth token - ALWAYS GET FRESH TOKEN
   const createThreadWithAuth = async (
     initialMessage: string,
     title?: string,
-    description?: string
+    description?: string,
+    selectedTopic?: string
   ) => {
     if (!token) {
       console.error("No auth token available");
@@ -1239,7 +1260,8 @@ export const useChat = () => {
       title,
       description,
       freshToken,
-      navigateToThread
+      navigateToThread,
+      selectedTopic
     );
   };
 

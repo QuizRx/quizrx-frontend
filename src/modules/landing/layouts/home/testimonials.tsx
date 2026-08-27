@@ -86,7 +86,7 @@ export default function TestimonialCarousel() {
         
         <motion.h2
           variants={zoomUpAnimation}
-          className="text-4xl md:text-5xl font-bold text-center text-[#212121]"
+          className="text-2xl sm:text-3xl md:text-5xl font-bold text-center text-[#212121]"
         >
           What Our Customers Say
         </motion.h2>

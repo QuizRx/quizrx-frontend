@@ -33,6 +33,28 @@ export const mapFirebaseAuthError = (error: any): AuthErrorState => {
       userMessage: "Too many failed attempts. Please try again later.",
       retryable: false,
     },
+    "auth/expired-action-code": {
+      message: "Expired action code",
+      userMessage: "Your reset link has expired. Request a new one.",
+      recoveryAction: "reset-password",
+      retryable: false,
+    },
+    "auth/invalid-action-code": {
+      message: "Invalid action code",
+      userMessage: "This reset link is invalid or has already been used.",
+      recoveryAction: "reset-password",
+      retryable: false,
+    },
+    "auth/weak-password": {
+      message: "Weak password",
+      userMessage: "Please choose a stronger password and try again.",
+      retryable: false,
+    },
+    "auth/user-disabled": {
+      message: "User disabled",
+      userMessage: "This account has been disabled.",
+      retryable: false,
+    },
     "auth/network-request-failed": {
       message: "Network error",
       userMessage: "Network error. Please check your connection.",

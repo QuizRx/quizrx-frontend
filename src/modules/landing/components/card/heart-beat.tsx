@@ -23,7 +23,7 @@ const HeartBeatCard = () => {
   return (
     <motion.div
       variants={zoomUpAnimation}
-      className="h-40 max-md:h-32 max-md:w-60 justify-center items-center flex flex-col rounded-t-xl rounded-r-none bg-white bottom-0 right-0 w-96 absolute"
+      className="h-40 max-md:h-32 max-md:w-60 justify-center items-center hidden sm:flex flex-col rounded-t-xl rounded-r-none bg-white bottom-0 right-0 w-96 absolute"
     >
       <div className="relative w-full h-20 overflow-hidden">
         <svg

@@ -173,7 +173,7 @@ export const Stream: React.FC<StreamProps> = ({
   return (
     <div className="relative border border-border rounded-xl bg-transparent overflow-hidden w-full max-w-4xl">
       {/* Mobile Layout - Vertical tabs list */}
-      <div className="sm:hidden flex flex-col min-h-[400px] max-h-[600px]">
+      <div className="sm:hidden flex flex-col min-h-[280px] max-h-[70vh]">
         {/* Header with Title */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-white">
           <div className="flex items-center gap-2">

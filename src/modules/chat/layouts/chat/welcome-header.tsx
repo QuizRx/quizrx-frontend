@@ -1,263 +1,190 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { ArrowUp } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/core/lib/utils";
+import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
+import { ModeSelectionCards } from "@/modules/extraction-quiz/components/mode-selection-cards";
+import { SuggestedPromptsPanel } from "@/modules/extraction-quiz/components/suggested-prompts-panel";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/core/components/ui/card";
-import { ProjectLogo } from "@/core/components/ui/logo";
-import { useAuth } from "@/core/providers/auth";
-import {
-  Calendar,
-  FileText,
-  LayoutGrid,
-  MessageCircleQuestion,
-} from "lucide-react";
-import { useChat } from "../../store/chat-store";
-import { Badge } from "@/core/components/ui/badge";
-import { Button } from "@/core/components/ui/button";
-import { motion } from "motion/react";
-import FormTopics from "./form-topics";
-import Link from "next/link";
-// Type definition for welcome cards
-type CardType = {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  isPrimary: boolean;
-  prompt?: string;
-  action?: () => void;
+  getModeLabel,
+  isConversationalMode,
+} from "@/modules/extraction-quiz/data/learning-modes";
+import { TUTOR_SUGGESTED_PROMPTS } from "@/modules/extraction-quiz/data/suggested-prompts";
+import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+
+type WelcomeHeaderProps = {
+  selectedChainId: string | null;
+  onSelectChain: (chainId: string | null) => void;
+  onPrompt: (prompt: string) => Promise<void> | void;
+  onStartQuestion: () => Promise<void> | void;
+  isBusy?: boolean;
 };
 
-export const WelcomeHeader = () => {
-  const { user } = useAuth();
-  const { handleSubmit } = useChat();
-  const [openQuiz, setOpenQuiz] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Check for mobile view on client side
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    // Initial check
-    checkMobile();
-
-    // Add event listener for window resize
-    window.addEventListener("resize", checkMobile);
-
-    // Cleanup
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // Card data mapping for welcome layout
-  const cardData: CardType[] = [
-    {
-      icon: FileText,
-      title: "Create",
-      description: "Curated questions based on your performance.",
-      isPrimary: true,
-      prompt: "Show me a recommended question based on my performance",
-    },
-    {
-      icon: LayoutGrid,
-      title: "Todays Challenge",
-      description: "A hand-picked question to test your knolwedge.",
-      isPrimary: false,
-      prompt: "What's today's Endocrinology challenge question?",
-    },
-    {
-      icon: MessageCircleQuestion,
-      title: "Quiz from Selection",
-      description: "Select a topic and a subtopic to have a personalized quiz.",
-      isPrimary: false,
-      action: () => {
-        setOpenQuiz(true);
-      },
-    },
-  ];
-
-  // Preset prompt buttons
-  const presetPrompts = [
-    "Help me prepare for an upcoming test",
-    "Explain a difficult concept to me",
-    "Generate practice questions on a topic",
-    "Analyze my weak areas",
-  ];
-
-  const handleCardClick = (card: CardType) => {
-    if (card.prompt) {
-      handleSubmit(card.prompt);
+// Approved greeting copy (Final Handoff Appendix A), driven by the explicit
+// mode + topic selection.
+const buildGreeting = (
+  modeLabel: string | null,
+  topicLabel: string | null,
+  isTutor: boolean
+): string => {
+  if (!modeLabel) {
+    return "Hello! Welcome to QuizRx. Choose QuizRx Reasoning, Practice Studio, or Tutor, then select a Calcium & Bone topic to begin.";
+  }
+  if (isTutor) {
+    if (!topicLabel) {
+      return "Hello! I'm your QuizRx Tutor. Pick a Calcium & Bone topic, then ask me to explain a concept, compare two conditions, or review what matters most.";
     }
-    if (card.action) {
-      card.action();
-    }
+    return `Hello! I'm your QuizRx Tutor for ${topicLabel}. Ask me to explain a concept, compare conditions, elaborate on anything, or review the key points.`;
+  }
+  if (!topicLabel) {
+    return `Hello! You're in ${modeLabel}. Choose a Calcium & Bone topic to begin, or tell me what you would like to review.`;
+  }
+  return `Hello! You're in ${modeLabel}, exploring ${topicLabel}. Start a question, ask for an explanation, or use one of the suggested prompts.`;
+};
+
+export const WelcomeHeader = ({
+  selectedChainId,
+  onSelectChain,
+  onPrompt,
+  onStartQuestion,
+  isBusy = false,
+}: WelcomeHeaderProps) => {
+  const [draft, setDraft] = useState("");
+  const experience = useExtractionQuizStore((s) => s.experience);
+  const selectedLabel = findChainById(selectedChainId)?.label ?? null;
+  const modeLabel = getModeLabel(experience);
+  const isTutor = isConversationalMode(experience);
+  const greeting = buildGreeting(modeLabel, selectedLabel, isTutor);
+  // Both an explicit mode and a topic are required before a question can be
+  // served (Final Handoff §6/§8). Tutor has no question flow.
+  const canStartQuestion =
+    !isBusy && Boolean(experience) && Boolean(selectedChainId) && !isTutor;
+
+  const placeholder = isTutor
+    ? selectedLabel
+      ? `Ask your tutor about ${selectedLabel}...`
+      : "Ask your tutor anything about Calcium & Bone..."
+    : selectedLabel
+    ? `Ask anything about ${selectedLabel}...`
+    : "Ask QuizRx anything...";
+
+  const handleSendDraft = async () => {
+    const value = draft.trim();
+    if (!value) return;
+    setDraft("");
+    await onPrompt(value);
   };
 
-  const handlePresetPromptClick = (prompt: string) => {
-    handleSubmit(prompt);
-  };
-
-  // Container animations
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
-  };
-
-  // Header animations
-  const headerVariants = {
-    hidden: { opacity: 0, y: -20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-        ease: [0.17, 0.67, 0.83, 0.67] as const,
-      },
-    },
-  };
-
-  // Card animations
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        ease: [0.17, 0.67, 0.83, 0.67] as const,
-      },
-    },
-    hover: {
-      scale: 1.03,
-      transition: { duration: 0.2 },
-    },
-    tap: {
-      scale: 0.97,
-      transition: { duration: 0.1 },
-    },
-  };
-
-  // Badge animations
-  const badgeVariants = {
-    hidden: { opacity: 0, scale: 0.8 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      transition: {
-        duration: 0.3,
-      },
-    },
-    hover: {
-      scale: 1.05,
-      transition: { duration: 0.2 },
-    },
-    tap: {
-      scale: 0.9,
-      transition: { duration: 0.1 },
-    },
-  };
+  const canSend = !isBusy && draft.trim().length > 0;
 
   return (
-    <>
-      {!openQuiz && (
-        <motion.div
-          className="flex flex-col items-center w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8 py-3 sm:py-4 px-3 sm:px-4 md:px-6 lg:px-8 3xl:mt-40"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          {/* Welcome section */}
-          <div className="text-center max-w-2xl flex flex-col items-center justify-center gap-2 sm:gap-3 md:gap-4">
-            <img src="/logo/light-log.svg" className="w-7 sm:w-8 h-7 sm:h-8" />
-            <h2 className="text-base sm:text-lg md:text-xl text-zinc-400 font-medium">
-              Hi, {user?.name.split(" ")[0]}
-            </h2>
-            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-medium text-primary px-2">
-              How Can I Help You Today?
+    <section className="mx-auto w-full max-w-6xl px-4 pt-6 md:pt-10">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+        {/* Main column: heading -> instruction -> topic -> chat box */}
+        <div className="min-w-0">
+          <header className="mb-5">
+            <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+              Calcium &amp; Bone
+            </span>
+            <h1 className="mt-3 text-3xl font-semibold text-[var(--primary)] md:text-4xl">
+              Questions That Make You Think.
             </h1>
-            <p className="text-muted-foreground max-w-lg mx-auto text-xs sm:text-sm px-2">
-              Let's dive into today&apos;s quiz journey. Whether you're here to
-              practice or challenge yourself, we&apos;ve got your back.
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-zinc-600">
+              {greeting}
             </p>
-            <p className="text-muted-foreground max-w-lg mx-auto text-[11px] sm:text-xs px-2">
-              Privacy notice: QuizRx stores your account details, chat history,
-              and generated questions during this closed beta. Read more in our{" "}
-              <Link href="/privacy-policy" className="text-primary underline">
-                privacy notice
-              </Link>
-              .
-            </p>
+          </header>
+
+          {/* Two-experience chooser, above the topic selector and chat (§7). */}
+          <div className="mb-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
+              Choose how you want to learn
+            </h2>
+            <ModeSelectionCards disabled={isBusy} />
           </div>
 
-          {/* Information cards */}
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 w-full max-w-3xl mt-4 sm:mt-6 min-w-0"
-            variants={containerVariants}
-          >
-            {cardData.map((card, index) => (
-              <motion.div
-                key={index}
-                variants={cardVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <div
-                  className={`
-                shadow-none border p-3 sm:p-4 border-zinc-200 rounded-lg h-full
-                ${
-                  card.isPrimary
-                    ? "bg-gradient-to-br from-primary/80 to-primary text-white"
-                    : "bg-card hover:bg-gradient-to-br hover:from-primary/80 hover:to-primary hover:text-white"
-                } cursor-pointer group`}
-                  onClick={() => handleCardClick(card)}
-                >
-                  <card.icon className="h-5 w-5 mb-2" />
-                  <CardTitle className="text-sm sm:text-base md:text-lg mb-1">
-                    {card.title}
-                  </CardTitle>
-                  <div>
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        card.isPrimary
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground group-hover:text-primary-foreground"
-                      }`}
-                    >
-                      {card.description}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.div>
-      )}
-      {openQuiz && (
-        <motion.div
-          className="flex flex-col items-center w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8 py-3 sm:py-4 px-3 sm:px-4 md:px-6 lg:px-8 3xl:mt-40"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          <Button
-            className="self-start mb-2 px-2 sm:px-3 py-1 text-sm transition"
-            onClick={() => setOpenQuiz(false)}
-          >
-            ← Back
-          </Button>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
+              Choose a topic
+            </h2>
+            <TopicDropdown
+              selectedChainId={selectedChainId}
+              onSelectChain={onSelectChain}
+            />
+          </div>
 
-          <FormTopics />
-        </motion.div>
-      )}
-    </>
+          {/* Action-driven start: serve the first question without typing.
+              Hidden in Tutor mode, which is chat-first (no question flow). */}
+          {!isTutor && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => onStartQuestion()}
+                disabled={!canStartQuestion}
+                className={cn(
+                  "inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
+                  !canStartQuestion && "cursor-not-allowed opacity-50"
+                )}
+              >
+                Start a question
+              </button>
+              {!canStartQuestion && !isBusy && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  {experience
+                    ? "Choose a Calcium & Bone topic to begin."
+                    : "Choose a learning mode and a topic to begin."}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-xl shadow-zinc-900/5 ring-1 ring-black/5 transition-shadow focus-within:border-[var(--primary)]/40 focus-within:ring-2 focus-within:ring-[var(--primary)]/25 md:p-5">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendDraft();
+                }
+              }}
+              placeholder={placeholder}
+              rows={4}
+              disabled={isBusy}
+              autoFocus
+              className="w-full resize-none bg-transparent px-1 text-base leading-relaxed text-zinc-800 outline-none placeholder:text-zinc-400"
+            />
+
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-zinc-400">
+                Press Enter to send · Shift + Enter for a new line
+              </span>
+              <button
+                type="button"
+                onClick={handleSendDraft}
+                disabled={!canSend}
+                aria-label="Send"
+                className={cn(
+                  "inline-flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full bg-[var(--primary)] text-white shadow-sm transition-all hover:bg-[var(--primary)]/90 sm:self-auto",
+                  !canSend && "opacity-50"
+                )}
+              >
+                <ArrowUp className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Suggested prompts: right on desktop, below the chat box on mobile.
+            Tutor surfaces conversational prompts instead of the question set. */}
+        <SuggestedPromptsPanel
+          onSelect={onPrompt}
+          disabled={isBusy}
+          prompts={isTutor ? TUTOR_SUGGESTED_PROMPTS : undefined}
+          title={isTutor ? "Try asking" : undefined}
+          className="lg:sticky lg:top-4"
+        />
+      </div>
+    </section>
   );
 };

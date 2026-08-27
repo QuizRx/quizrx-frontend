@@ -186,7 +186,7 @@ export async function initializeDefaultData(): Promise<void> {
       { name: 'Home', href: '/', order: 0 },
       { name: 'About Us', href: '/about-us', order: 1 },
       { name: 'Pricing', href: '/pricing', order: 2 },
-      { name: 'Contact', href: '/contact', order: 3 },
+      { name: 'Feedback', href: '/feedback', order: 3 },
     ];
 
     for (const link of defaultLinks) {
