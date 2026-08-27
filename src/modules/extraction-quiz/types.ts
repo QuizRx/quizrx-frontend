@@ -82,7 +82,14 @@ export type QuestionFeedbackResult = {
 
 // --- Learning Action contract (Stage 2 X-01) -------------------------------
 
-export type LearningExperience = "reasoning" | "practice_studio";
+export type LearningExperience = "reasoning" | "practice_studio" | "tutor";
+
+// One prior conversation turn sent to the backend in Tutor mode so follow-up
+// questions keep context.
+export type LearningTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 export type LearningResponseType =
   | "small_talk"
@@ -169,6 +176,9 @@ export type LearningActionInput = {
   learnerAnswer?: string | null;
   // Question ids already shown this session, so the server avoids repeats.
   seenQuestionIds?: string[] | null;
+  // Recent conversation turns for Tutor mode follow-up context. Ignored by the
+  // Reasoning / Practice Studio flows.
+  history?: LearningTurn[] | null;
 };
 
 export type LearningActionResponse = {

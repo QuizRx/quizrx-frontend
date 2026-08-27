@@ -6,7 +6,11 @@ import { cn } from "@/core/lib/utils";
 import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ModeSelectionCards } from "@/modules/extraction-quiz/components/mode-selection-cards";
 import { SuggestedPromptsPanel } from "@/modules/extraction-quiz/components/suggested-prompts-panel";
-import { getModeLabel } from "@/modules/extraction-quiz/data/learning-modes";
+import {
+  getModeLabel,
+  isConversationalMode,
+} from "@/modules/extraction-quiz/data/learning-modes";
+import { TUTOR_SUGGESTED_PROMPTS } from "@/modules/extraction-quiz/data/suggested-prompts";
 import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 
 type WelcomeHeaderProps = {
@@ -21,10 +25,17 @@ type WelcomeHeaderProps = {
 // mode + topic selection.
 const buildGreeting = (
   modeLabel: string | null,
-  topicLabel: string | null
+  topicLabel: string | null,
+  isTutor: boolean
 ): string => {
   if (!modeLabel) {
-    return "Hello! Welcome to QuizRx. Choose QuizRx Reasoning or Practice Studio, then select a Calcium & Bone topic to begin.";
+    return "Hello! Welcome to QuizRx. Choose QuizRx Reasoning, Practice Studio, or Tutor, then select a Calcium & Bone topic to begin.";
+  }
+  if (isTutor) {
+    if (!topicLabel) {
+      return "Hello! I'm your QuizRx Tutor. Pick a Calcium & Bone topic, then ask me to explain a concept, compare two conditions, or review what matters most.";
+    }
+    return `Hello! I'm your QuizRx Tutor for ${topicLabel}. Ask me to explain a concept, compare conditions, elaborate on anything, or review the key points.`;
   }
   if (!topicLabel) {
     return `Hello! You're in ${modeLabel}. Choose a Calcium & Bone topic to begin, or tell me what you would like to review.`;
@@ -43,12 +54,18 @@ export const WelcomeHeader = ({
   const experience = useExtractionQuizStore((s) => s.experience);
   const selectedLabel = findChainById(selectedChainId)?.label ?? null;
   const modeLabel = getModeLabel(experience);
-  const greeting = buildGreeting(modeLabel, selectedLabel);
+  const isTutor = isConversationalMode(experience);
+  const greeting = buildGreeting(modeLabel, selectedLabel, isTutor);
   // Both an explicit mode and a topic are required before a question can be
-  // served (Final Handoff §6/§8).
-  const canStartQuestion = !isBusy && Boolean(experience) && Boolean(selectedChainId);
+  // served (Final Handoff §6/§8). Tutor has no question flow.
+  const canStartQuestion =
+    !isBusy && Boolean(experience) && Boolean(selectedChainId) && !isTutor;
 
-  const placeholder = selectedLabel
+  const placeholder = isTutor
+    ? selectedLabel
+      ? `Ask your tutor about ${selectedLabel}...`
+      : "Ask your tutor anything about Calcium & Bone..."
+    : selectedLabel
     ? `Ask anything about ${selectedLabel}...`
     : "Ask QuizRx anything...";
 
@@ -96,27 +113,30 @@ export const WelcomeHeader = ({
             />
           </div>
 
-          {/* Action-driven start: serve the first question without typing. */}
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => onStartQuestion()}
-              disabled={!canStartQuestion}
-              className={cn(
-                "inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
-                !canStartQuestion && "cursor-not-allowed opacity-50"
+          {/* Action-driven start: serve the first question without typing.
+              Hidden in Tutor mode, which is chat-first (no question flow). */}
+          {!isTutor && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => onStartQuestion()}
+                disabled={!canStartQuestion}
+                className={cn(
+                  "inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
+                  !canStartQuestion && "cursor-not-allowed opacity-50"
+                )}
+              >
+                Start a question
+              </button>
+              {!canStartQuestion && !isBusy && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  {experience
+                    ? "Choose a Calcium & Bone topic to begin."
+                    : "Choose a learning mode and a topic to begin."}
+                </p>
               )}
-            >
-              Start a question
-            </button>
-            {!canStartQuestion && !isBusy && (
-              <p className="mt-2 text-xs text-zinc-500">
-                {experience
-                  ? "Choose a Calcium & Bone topic to begin."
-                  : "Choose a learning mode and a topic to begin."}
-              </p>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-xl shadow-zinc-900/5 ring-1 ring-black/5 transition-shadow focus-within:border-[var(--primary)]/40 focus-within:ring-2 focus-within:ring-[var(--primary)]/25 md:p-5">
             <textarea
@@ -155,10 +175,13 @@ export const WelcomeHeader = ({
           </div>
         </div>
 
-        {/* Suggested prompts: right on desktop, below the chat box on mobile */}
+        {/* Suggested prompts: right on desktop, below the chat box on mobile.
+            Tutor surfaces conversational prompts instead of the question set. */}
         <SuggestedPromptsPanel
           onSelect={onPrompt}
           disabled={isBusy}
+          prompts={isTutor ? TUTOR_SUGGESTED_PROMPTS : undefined}
+          title={isTutor ? "Try asking" : undefined}
           className="lg:sticky lg:top-4"
         />
       </div>

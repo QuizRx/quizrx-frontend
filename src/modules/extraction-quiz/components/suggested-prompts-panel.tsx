@@ -2,12 +2,16 @@
 
 import { Sparkles } from "lucide-react";
 import { cn } from "@/core/lib/utils";
-import { SUGGESTED_PROMPTS } from "../data/suggested-prompts";
+import { SUGGESTED_PROMPTS, type SuggestedPrompt } from "../data/suggested-prompts";
 
 type SuggestedPromptsPanelProps = {
   onSelect: (intent: string) => void;
   disabled?: boolean;
   className?: string;
+  // Optional override so different modes (e.g. Tutor) can surface their own
+  // prompt set. Defaults to the shared list.
+  prompts?: readonly SuggestedPrompt[];
+  title?: string;
 };
 
 // Configurable vertical suggested-prompts panel (spec A-12). Labels are
@@ -17,6 +21,8 @@ export function SuggestedPromptsPanel({
   onSelect,
   disabled = false,
   className,
+  prompts = SUGGESTED_PROMPTS,
+  title = "Suggested prompts",
 }: SuggestedPromptsPanelProps) {
   return (
     <aside
@@ -27,10 +33,10 @@ export function SuggestedPromptsPanel({
     >
       <div className="mb-3 flex items-center gap-2 text-[var(--primary)]">
         <Sparkles className="h-4 w-4" />
-        <h2 className="text-sm font-semibold">Suggested prompts</h2>
+        <h2 className="text-sm font-semibold">{title}</h2>
       </div>
       <div className="flex flex-col gap-2">
-        {SUGGESTED_PROMPTS.map((prompt) => (
+        {prompts.map((prompt) => (
           <button
             key={prompt.id}
             type="button"

@@ -17,10 +17,12 @@ import {
 import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import type { ExtractionEntry } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import { useArchivedSessionsStore } from "@/modules/extraction-quiz/store/archived-sessions-store";
+import { isConversationalMode } from "@/modules/extraction-quiz/data/learning-modes";
 import type {
   LearningActionQuestionPayload,
   LearningActionResponse,
   LearningActionTextPayload,
+  LearningTurn,
 } from "@/modules/extraction-quiz/types";
 import { WelcomeHeader } from "./welcome-header";
 
@@ -43,6 +45,24 @@ const collectSeenQuestionIds = (entries: ExtractionEntry[]): string[] =>
     )
     .map((e) => e.attempt.question.question.dp_id)
     .filter((id): id is string => Boolean(id));
+
+// Recent Tutor conversation turns (learner prompts + assistant replies), so the
+// backend can keep follow-up context. Capped to the last few turns to bound the
+// prompt size; only used in Tutor mode.
+const MAX_TUTOR_HISTORY = 8;
+const collectTutorHistory = (entries: ExtractionEntry[]): LearningTurn[] =>
+  entries
+    .filter(
+      (e): e is Extract<ExtractionEntry, { kind: "user-prompt" | "assistant" }> =>
+        e.kind === "user-prompt" || e.kind === "assistant"
+    )
+    .map(
+      (e): LearningTurn => ({
+        role: e.kind === "user-prompt" ? "user" : "assistant",
+        content: e.content,
+      })
+    )
+    .slice(-MAX_TUTOR_HISTORY);
 
 const deriveSessionTitle = (
   entries: ExtractionEntry[],
@@ -108,7 +128,12 @@ export function ChatPageShell({
   const hasEntries = entries.length > 0;
   const shouldShowWelcome = showWelcomeWhenEmpty && !hasEntries;
   const selectedLabel = findChainById(selectedChainId)?.label ?? null;
-  const bottomPlaceholder = selectedLabel
+  const isTutor = isConversationalMode(experience);
+  const bottomPlaceholder = isTutor
+    ? selectedLabel
+      ? `Ask your tutor about ${selectedLabel}...`
+      : "Ask your tutor anything about Calcium & Bone..."
+    : selectedLabel
     ? `Ask anything about ${selectedLabel}...`
     : "Ask QuizRx anything...";
 
@@ -226,6 +251,10 @@ export function ChatPageShell({
         isFirstTurn,
         currentOptions,
         seenQuestionIds: collectSeenQuestionIds(priorEntries),
+        // Only Tutor mode needs conversation history for follow-up context.
+        history: isConversationalMode(experience)
+          ? collectTutorHistory(priorEntries.slice(contextFloor))
+          : null,
       });
       handleLearningResponse(response);
     } finally {

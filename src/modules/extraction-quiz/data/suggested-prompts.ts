@@ -29,3 +29,31 @@ export const SUGGESTED_PROMPTS: readonly SuggestedPrompt[] = [
     intent: "Review a question",
   },
 ] as const;
+
+// Tutor is a conversation, so its prompts invite teaching rather than a
+// question drill. The selected topic is applied in the background, so labels
+// stay topic-agnostic.
+export const TUTOR_SUGGESTED_PROMPTS: readonly SuggestedPrompt[] = [
+  {
+    id: "tutor-explain",
+    label: "Explain this topic simply",
+    intent: "Explain this topic simply, as if you were teaching a student.",
+  },
+  {
+    id: "tutor-compare",
+    label: "Compare two related conditions",
+    intent:
+      "Compare two related conditions in this topic and explain how to tell them apart.",
+  },
+  {
+    id: "tutor-why",
+    label: "Why does this happen?",
+    intent: "Walk me through the underlying mechanism — why does this happen?",
+  },
+  {
+    id: "tutor-review",
+    label: "Review the key points",
+    intent:
+      "Give me a concise review of the key points I should remember for this topic.",
+  },
+] as const;

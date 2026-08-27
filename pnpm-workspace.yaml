@@ -1,4 +1,4 @@
-onlyBuiltDependencies:
+qonlyBuiltDependencies:
   - '@firebase/util'
   - cypress
   - esbuild

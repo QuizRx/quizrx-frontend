@@ -5,8 +5,8 @@ import { cn } from "@/core/lib/utils";
 import { LEARNING_MODES } from "../data/learning-modes";
 import { useExtractionQuizStore } from "../store/extraction-quiz-store";
 
-// Two-experience chooser (Final Handoff §6/§7). The learner explicitly picks a
-// mode before the app routes learning requests — it never guesses silently.
+// Three-experience chooser (Final Handoff §6/§7). The learner explicitly picks
+// a mode before the app routes learning requests — it never guesses silently.
 // Presented above the topic selector and chat workspace.
 export function ModeSelectionCards({
   disabled = false,
@@ -22,7 +22,7 @@ export function ModeSelectionCards({
     <div
       role="radiogroup"
       aria-label="Choose a learning mode"
-      className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", className)}
+      className={cn("grid grid-cols-1 gap-3 sm:grid-cols-3", className)}
     >
       {LEARNING_MODES.map((mode) => {
         const active = experience === mode.value;
