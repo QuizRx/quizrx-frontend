@@ -5,7 +5,10 @@ FROM node:18-alpine AS dependencies
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install
+# Match package.json packageManager so Docker builds don't hit
+# ERR_PNPM_PNPM_ENGINE_IDENTITY_UNVERIFIABLE from a global npm pnpm install.
+RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
+RUN pnpm install
 
 FROM node:18-alpine AS builder
 WORKDIR /app
@@ -15,14 +18,14 @@ COPY --from=dependencies /app/node_modules ./node_modules
 # Beta env for build (not production)
 COPY .env.beta .env.local
 
-RUN npm install -g pnpm && \
+RUN corepack enable && corepack prepare pnpm@10.10.0 --activate && \
     echo "Building Next.js application (beta)..." && \
     pnpm build
 
 FROM node:18-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV production
-RUN npm install -g pnpm
+RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
