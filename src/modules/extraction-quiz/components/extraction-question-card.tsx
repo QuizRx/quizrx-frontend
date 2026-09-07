@@ -33,8 +33,14 @@ export function ExtractionQuestionCard({
   const recordAnswer = useExtractionQuizStore((s) => s.recordAnswer);
   const recordFreeText = useExtractionQuizStore((s) => s.recordFreeText);
   const recordReview = useExtractionQuizStore((s) => s.recordReview);
-  const experience = useExtractionQuizStore((s) => s.experience);
   const sessionId = useExtractionQuizStore((s) => s.sessionId);
+  // Grade/report against the attempt's own experience, not the mode currently
+  // on screen — focusing the chat box switches to Tutor and must not re-route.
+  const experience =
+    attempt.experience ??
+    (attempt.question.question.format === "short_answer"
+      ? "practice_studio"
+      : "reasoning");
   const { submitFeedback } = useExtractionQuiz();
   const runLearningAction = useLearningAction();
 

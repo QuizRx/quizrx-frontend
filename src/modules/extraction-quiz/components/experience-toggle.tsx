@@ -4,11 +4,9 @@ import { cn } from "@/core/lib/utils";
 import { LEARNING_MODES } from "../data/learning-modes";
 import { useExtractionQuizStore } from "../store/extraction-quiz-store";
 
-// Compact experience switch used once a mode is already selected (Final
-// Handoff §7). "QuizRx Reasoning" serves curated MCQs; "Practice Studio" serves
-// short-answer questions. The choice is sent as the explicit learning mode on
-// every learning-action request and persists in the store. When no mode is
-// selected yet, neither pill is highlighted.
+// Compact experience switch. Reasoning and Practice Studio are question
+// experiences; Tutor is the conversational mode. Switching never erases the
+// other experiences' progress.
 export function ExperienceToggle({
   className,
   disabled = false,

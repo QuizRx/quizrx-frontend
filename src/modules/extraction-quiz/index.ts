@@ -6,11 +6,13 @@ export { useExtractionQuiz } from "./hooks/use-extraction-quiz";
 export {
   useExtractionQuizStore,
   useAnsweredCount,
+  flattenModeEntries,
 } from "./store/extraction-quiz-store";
 export type {
   ExtractionAttempt,
   ExtractionEntry,
   LoadSessionPayload,
+  ModeEntries,
 } from "./store/extraction-quiz-store";
 export { useArchivedSessionsStore } from "./store/archived-sessions-store";
 export type {

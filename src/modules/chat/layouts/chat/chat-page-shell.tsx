@@ -8,16 +8,20 @@ import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
 import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
 import { ExperienceToggle } from "@/modules/extraction-quiz/components/experience-toggle";
+import { LearningStatusBar } from "@/modules/extraction-quiz/components/learning-status-bar";
 import { TopicChangeDialog } from "@/modules/extraction-quiz/components/topic-change-dialog";
 import { useLearningAction } from "@/modules/extraction-quiz/hooks/use-learning-action";
+import { learningQuestionToExtractionData } from "@/modules/extraction-quiz/utils/learning-action";
 import {
-  learningQuestionToExtractionData,
-  toCurrentOptions,
-} from "@/modules/extraction-quiz/utils/learning-action";
-import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+  flattenModeEntries,
+  useExtractionQuizStore,
+} from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import type { ExtractionEntry } from "@/modules/extraction-quiz/store/extraction-quiz-store";
 import { useArchivedSessionsStore } from "@/modules/extraction-quiz/store/archived-sessions-store";
-import { isConversationalMode } from "@/modules/extraction-quiz/data/learning-modes";
+import {
+  isConversationalMode,
+  isQuestionMode,
+} from "@/modules/extraction-quiz/data/learning-modes";
 import type {
   LearningActionQuestionPayload,
   LearningActionResponse,
@@ -35,8 +39,6 @@ const DONT_ASK_KEY = "quizrx-topic-change-dont-ask";
 const FRIENDLY_ERROR_TEXT =
   "Sorry, I couldn't generate a question just now. Please try again.";
 
-// Ids of every question already shown this session, so the server avoids
-// repeats (Reasoning) / samples without replacement (Practice Studio).
 const collectSeenQuestionIds = (entries: ExtractionEntry[]): string[] =>
   entries
     .filter(
@@ -46,9 +48,6 @@ const collectSeenQuestionIds = (entries: ExtractionEntry[]): string[] =>
     .map((e) => e.attempt.question.question.dp_id)
     .filter((id): id is string => Boolean(id));
 
-// Recent Tutor conversation turns (learner prompts + assistant replies), so the
-// backend can keep follow-up context. Capped to the last few turns to bound the
-// prompt size; only used in Tutor mode.
 const MAX_TUTOR_HISTORY = 8;
 const collectTutorHistory = (entries: ExtractionEntry[]): LearningTurn[] =>
   entries
@@ -81,6 +80,7 @@ export function ChatPageShell({
 }: ChatPageShellProps) {
   const { isChatSidebarOpen } = useChatSidebar();
   const entries = useExtractionQuizStore((s) => s.entries);
+  const modeEntries = useExtractionQuizStore((s) => s.modeEntries);
   const sessionId = useExtractionQuizStore((s) => s.sessionId);
   const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
   const setSelectedChainId = useExtractionQuizStore(
@@ -94,17 +94,19 @@ export function ChatPageShell({
   const setIsFetching = useExtractionQuizStore((s) => s.setIsFetching);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
   const experience = useExtractionQuizStore((s) => s.experience);
-  // Synchronous lock so rapid double-clicks on Start/Next cannot fire two
-  // learningAction requests before React re-renders with isFetching=true.
+  const lastQuestionExperience = useExtractionQuizStore(
+    (s) => s.lastQuestionExperience
+  );
+  const setExperience = useExtractionQuizStore((s) => s.setExperience);
   const actionInFlightRef = useRef(false);
   const archiveSession = useArchivedSessionsStore((s) => s.archive);
   const runLearningAction = useLearningAction();
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
 
-  // Topic-change session dialog (A-11).
   const [pendingTopic, setPendingTopic] = useState<{
     chainId: string | null;
   } | null>(null);
@@ -123,25 +125,27 @@ export function ChatPageShell({
     if (entries.length > 0 && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [entries.length, isFetching]);
+  }, [entries.length, isFetching, experience]);
 
-  const hasEntries = entries.length > 0;
-  const shouldShowWelcome = showWelcomeWhenEmpty && !hasEntries;
+  const allEntries = flattenModeEntries(modeEntries);
+  const hasAnyEntries = allEntries.length > 0;
   const selectedLabel = findChainById(selectedChainId)?.label ?? null;
   const isTutor = isConversationalMode(experience);
-  const bottomPlaceholder = isTutor
-    ? selectedLabel
-      ? `Ask your tutor about ${selectedLabel}...`
-      : "Ask your tutor anything about Calcium & Bone..."
-    : selectedLabel
-    ? `Ask anything about ${selectedLabel}...`
-    : "Ask QuizRx anything...";
+  const hasCurrentAttempts = entries.some((e) => e.kind === "attempt");
+  const canStart =
+    isQuestionMode(experience) && Boolean(selectedChainId) && !hasCurrentAttempts;
+  const canNext = isQuestionMode(experience) && hasCurrentAttempts;
+  const bottomPlaceholder = selectedLabel
+    ? `Ask your tutor about ${selectedLabel}...`
+    : "Ask your tutor anything about Calcium & Bone...";
 
-  // Topic selection with the approved session choice (A-11). When there is no
-  // active session (or the user opted out of the prompt) we apply immediately.
+  const enterTutor = () => {
+    if (experience !== "tutor") setExperience("tutor");
+  };
+
   const handleSelectChain = (chainId: string | null) => {
     if (chainId === selectedChainId) return;
-    if (!hasEntries || dontAskAgain) {
+    if (!hasAnyEntries || dontAskAgain) {
       setSelectedChainId(chainId);
       return;
     }
@@ -157,12 +161,14 @@ export function ChatPageShell({
 
   const handleStartNewSession = () => {
     const target = pendingTopic?.chainId ?? null;
-    // Preserve the current session in History before starting a fresh one.
     archiveSession({
       sessionId,
-      title: deriveSessionTitle(entries, selectedChainId),
+      title: deriveSessionTitle(allEntries, selectedChainId),
       chainId: selectedChainId,
-      entries,
+      entries: allEntries,
+      modeEntries,
+      experience,
+      lastQuestionExperience,
     });
     resetSession();
     setSelectedChainId(target);
@@ -180,19 +186,10 @@ export function ChatPageShell({
     }
   };
 
-  // Render a typed learning-action response (Stage 2 X-01). We switch on
-  // `responseType` only — never on payload shape — and never auto-fetch a
-  // follow-up question after an explanation or review.
   const handleLearningResponse = (response: LearningActionResponse) => {
     switch (response.responseType) {
       case "question": {
         const payload = response.payload as LearningActionQuestionPayload;
-        // Do not dedupe by question_id here. Reasoning wraps to the same
-        // curated item after a topic is exhausted (some topics have only 1),
-        // and Practice Studio may re-sample. Double-submit is already blocked
-        // by `actionInFlightRef` in runQuestionAction / runPrompt.
-        // Prefer the dropdown concept id (CAL-BONE-*) over payload.topic_id so
-        // history labels and topic routing stay consistent.
         const chainId = selectedChainId ?? payload.topic_id ?? "";
         appendAttempt(chainId, learningQuestionToExtractionData(payload));
         return;
@@ -202,8 +199,6 @@ export function ChatPageShell({
         appendSystem(payload?.text ?? FRIENDLY_ERROR_TEXT);
         return;
       }
-      // small_talk | scope_redirect | explanation | question_review |
-      // clarification are all text-only assistant replies.
       default: {
         const payload = response.payload as LearningActionTextPayload;
         if (payload?.text) appendAssistant(payload.text);
@@ -217,25 +212,10 @@ export function ChatPageShell({
     if (!text || actionInFlightRef.current) return;
     if (useExtractionQuizStore.getState().isFetching) return;
 
-    // Snapshot the pre-turn thread so we can derive follow-up context and the
-    // is_first_turn flag before mutating the store.
-    const { entries: priorEntries, contextFloor } =
-      useExtractionQuizStore.getState();
-    const isFirstTurn = !priorEntries.some((e) => e.kind === "user-prompt");
-    // Only echo a current question from the ACTIVE mode. `contextFloor` moves
-    // to the end of the thread when the learner switches mode, so follow-ups
-    // never attach to a question from the previous mode (Final Handoff §6).
-    const lastAttempt = [...priorEntries.slice(contextFloor)]
-      .reverse()
-      .find(
-        (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
-          e.kind === "attempt"
-      );
-    const currentQuestionId =
-      lastAttempt?.attempt.question.question.dp_id ?? null;
-    const currentOptions = lastAttempt
-      ? toCurrentOptions(lastAttempt.attempt.question.question.choices)
-      : null;
+    enterTutor();
+    const { modeEntries: priorModes } = useExtractionQuizStore.getState();
+    const tutorEntries = priorModes.tutor;
+    const isFirstTurn = tutorEntries.length === 0;
 
     actionInFlightRef.current = true;
     appendUserPrompt(text);
@@ -243,18 +223,12 @@ export function ChatPageShell({
     try {
       const response = await runLearningAction({
         message: text,
-        experience,
+        experience: "tutor",
         topicId: selectedChainId,
         topicDisplayName: findChainById(selectedChainId)?.label ?? null,
         sessionId,
-        currentQuestionId,
         isFirstTurn,
-        currentOptions,
-        seenQuestionIds: collectSeenQuestionIds(priorEntries),
-        // Only Tutor mode needs conversation history for follow-up context.
-        history: isConversationalMode(experience)
-          ? collectTutorHistory(priorEntries.slice(contextFloor))
-          : null,
+        history: collectTutorHistory(tutorEntries),
       });
       handleLearningResponse(response);
     } finally {
@@ -263,35 +237,29 @@ export function ChatPageShell({
     }
   };
 
-  // Explicit "Start a question" / "Next question" action (Final Handoff
-  // routing). No user bubble is added — the loader then the question is enough.
   const runQuestionAction = async (
     action: "start_question" | "next_question"
   ) => {
     if (actionInFlightRef.current) return;
     if (useExtractionQuizStore.getState().isFetching) return;
-    const { entries: priorEntries } = useExtractionQuizStore.getState();
-    const isFirstTurn = !priorEntries.some((e) => e.kind === "user-prompt");
+    const current = useExtractionQuizStore.getState();
+    if (!isQuestionMode(current.experience)) return;
+    const priorEntries = current.modeEntries[current.experience];
     actionInFlightRef.current = true;
     setIsFetching(true);
     try {
-      // Nest requires a non-empty `message` (class-validator). Action-driven
-      // Start/Next must still send a short placeholder; the server routes on
-      // `action`, not on this text.
       const input = {
         message:
           action === "next_question" ? "next question" : "start a question",
-        experience,
+        experience: current.experience,
         topicId: selectedChainId,
         topicDisplayName: findChainById(selectedChainId)?.label ?? null,
         sessionId,
         action,
         seenQuestionIds: collectSeenQuestionIds(priorEntries),
-        isFirstTurn,
+        isFirstTurn: priorEntries.length === 0,
       } as const;
 
-      // One automatic retry: cold-start / brief auth refresh blips after a long
-      // explanation read should not surface the friendly error on first paint.
       let response = await runLearningAction(input);
       if (response.responseType === "friendly_error") {
         await new Promise((r) => setTimeout(r, 800));
@@ -310,6 +278,8 @@ export function ChatPageShell({
     setDraft("");
     await runPrompt(text);
   };
+
+  const showWelcomeChrome = showWelcomeWhenEmpty || !hasAnyEntries;
 
   return (
     <div className="relative flex flex-col overflow-hidden h-full">
@@ -335,81 +305,110 @@ export function ChatPageShell({
           className="flex-1 overflow-x-hidden overflow-y-auto px-2 pt-2 min-h-0 mt-12"
           style={{
             paddingBottom:
-              "max(120px, calc(96px + env(safe-area-inset-bottom, 0px)))",
+              "max(160px, calc(140px + env(safe-area-inset-bottom, 0px)))",
           }}
         >
-          {shouldShowWelcome ? (
-            <WelcomeHeader
-              selectedChainId={selectedChainId}
-              onSelectChain={handleSelectChain}
-              onPrompt={runPrompt}
+          <WelcomeHeader
+            selectedChainId={selectedChainId}
+            onSelectChain={handleSelectChain}
+            onPrompt={runPrompt}
+            onStartQuestion={() => runQuestionAction("start_question")}
+            onEnterTutor={() => chatInputRef.current?.focus()}
+            isBusy={isFetching}
+            compact={!showWelcomeChrome}
+          />
+
+          <div className="mx-auto w-full max-w-6xl px-4">
+            <LearningStatusBar
+              topicLabel={selectedLabel}
+              experience={experience}
+              lastQuestionExperience={lastQuestionExperience}
+              onReturnToQuestion={() => {
+                if (lastQuestionExperience) setExperience(lastQuestionExperience);
+              }}
+              onNextQuestion={() => runQuestionAction("next_question")}
               onStartQuestion={() => runQuestionAction("start_question")}
+              canStart={canStart}
+              canNext={canNext}
               isBusy={isFetching}
+              className="mb-4"
             />
-          ) : (
+          </div>
+
+          {(hasCurrentAttempts || (isTutor && entries.length > 0)) && (
             <ChatThreadView
               onNextQuestion={() => runQuestionAction("next_question")}
+              showNext={canNext}
             />
           )}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {!shouldShowWelcome && (
-        <div
-          className={cn(
-            "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
-            isChatSidebarOpen ? "lg:pl-[316px]" : ""
-          )}
-          style={{
-            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
-          }}
-        >
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="flex items-center gap-2 text-xs text-zinc-500">
-                {selectedLabel ?? "No topic selected yet"}
-              </span>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-                <ExperienceToggle disabled={isFetching} />
-                <TopicDropdown
-                  selectedChainId={selectedChainId}
-                  onSelectChain={handleSelectChain}
-                />
-              </div>
-            </div>
-            <div className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-white p-2">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder={bottomPlaceholder}
-                rows={1}
-                disabled={isFetching}
-                className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
+      <div
+        className={cn(
+          "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
+          isChatSidebarOpen ? "lg:pl-[316px]" : ""
+        )}
+        style={{
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              {isTutor
+                ? "Tutor — ask about what you just learned"
+                : "Tap the box to ask the Tutor. Your current question stays saved."}
+            </span>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+              <ExperienceToggle disabled={isFetching} />
+              <TopicDropdown
+                selectedChainId={selectedChainId}
+                onSelectChain={handleSelectChain}
               />
-              <Button
-                size="icon"
-                onClick={handleSend}
-                disabled={isFetching || !draft.trim()}
-                aria-label="Send"
-                className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-              >
-                {isFetching ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowUp className="h-4 w-4" />
-                )}
-              </Button>
             </div>
           </div>
+          <div
+            className={cn(
+              "flex items-end gap-2 rounded-2xl border bg-white p-2",
+              isTutor
+                ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20"
+                : "border-zinc-200"
+            )}
+          >
+            <textarea
+              ref={chatInputRef}
+              value={draft}
+              onFocus={enterTutor}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={bottomPlaceholder}
+              rows={1}
+              disabled={isFetching}
+              className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
+            />
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={isFetching || !draft.trim()}
+              aria-label="Send to Tutor"
+              className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+            >
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
 
       <TopicChangeDialog
         open={topicDialogOpen}
@@ -424,19 +423,18 @@ export function ChatPageShell({
 
 function ChatThreadView({
   onNextQuestion,
+  showNext,
 }: {
   onNextQuestion: () => void;
+  showNext: boolean;
 }) {
   const entries = useExtractionQuizStore((s) => s.entries);
   const isFetching = useExtractionQuizStore((s) => s.isFetching);
-
-  // Offer "Next question" once at least one question has been shown, so the
-  // learner can advance without typing (Final Handoff action-driven flow).
-  const hasAttempt = entries.some((e) => e.kind === "attempt");
+  const experience = useExtractionQuizStore((s) => s.experience);
   let attemptOrdinal = 0;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-2 pt-4 sm:px-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-2 pt-2 sm:px-4">
       {entries.map((entry) => {
         if (entry.kind === "user-prompt") {
           return (
@@ -485,12 +483,14 @@ function ChatThreadView({
         <div className="flex justify-start mb-4">
           <div className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
             <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
-            Preparing question...
+            {experience === "tutor"
+              ? "Tutor is thinking..."
+              : "Preparing question..."}
           </div>
         </div>
       )}
 
-      {hasAttempt && !isFetching && (
+      {showNext && !isFetching && (
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"

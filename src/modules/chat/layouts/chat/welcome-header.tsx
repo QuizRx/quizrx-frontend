@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowUp } from "lucide-react";
-import { useState } from "react";
 import { cn } from "@/core/lib/utils";
 import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ModeSelectionCards } from "@/modules/extraction-quiz/components/mode-selection-cards";
 import { SuggestedPromptsPanel } from "@/modules/extraction-quiz/components/suggested-prompts-panel";
 import {
+  QUESTION_MODES,
+  TUTOR_MODE,
   getModeLabel,
   isConversationalMode,
+  isQuestionMode,
 } from "@/modules/extraction-quiz/data/learning-modes";
 import { TUTOR_SUGGESTED_PROMPTS } from "@/modules/extraction-quiz/data/suggested-prompts";
 import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
@@ -18,29 +19,29 @@ type WelcomeHeaderProps = {
   onSelectChain: (chainId: string | null) => void;
   onPrompt: (prompt: string) => Promise<void> | void;
   onStartQuestion: () => Promise<void> | void;
+  onEnterTutor: () => void;
   isBusy?: boolean;
+  compact?: boolean;
 };
 
-// Approved greeting copy (Final Handoff Appendix A), driven by the explicit
-// mode + topic selection.
 const buildGreeting = (
   modeLabel: string | null,
   topicLabel: string | null,
   isTutor: boolean
 ): string => {
   if (!modeLabel) {
-    return "Hello! Welcome to QuizRx. Choose QuizRx Reasoning, Practice Studio, or Tutor, then select a Calcium & Bone topic to begin.";
+    return "QuizRx asks you questions in Reasoning or Practice Studio. You ask QuizRx questions in Tutor.";
   }
   if (isTutor) {
     if (!topicLabel) {
-      return "Hello! I'm your QuizRx Tutor. Pick a Calcium & Bone topic, then ask me to explain a concept, compare two conditions, or review what matters most.";
+      return "You're in Tutor. Pick a Calcium & Bone topic, then ask me to explain a concept, compare two conditions, or review what matters most.";
     }
-    return `Hello! I'm your QuizRx Tutor for ${topicLabel}. Ask me to explain a concept, compare conditions, elaborate on anything, or review the key points.`;
+    return `You're in Tutor for ${topicLabel}. Ask me to explain, compare, elaborate, or review — this is not a question generator.`;
   }
   if (!topicLabel) {
-    return `Hello! You're in ${modeLabel}. Choose a Calcium & Bone topic to begin, or tell me what you would like to review.`;
+    return `You're in ${modeLabel}. Choose a Calcium & Bone topic, then use Start to begin. The chat box below is for Tutor.`;
   }
-  return `Hello! You're in ${modeLabel}, exploring ${topicLabel}. Start a question, ask for an explanation, or use one of the suggested prompts.`;
+  return `You're in ${modeLabel}, exploring ${topicLabel}. Use Start or Next question — you don't need to type "quiz me."`;
 };
 
 export const WelcomeHeader = ({
@@ -48,143 +49,120 @@ export const WelcomeHeader = ({
   onSelectChain,
   onPrompt,
   onStartQuestion,
+  onEnterTutor,
   isBusy = false,
+  compact = false,
 }: WelcomeHeaderProps) => {
-  const [draft, setDraft] = useState("");
   const experience = useExtractionQuizStore((s) => s.experience);
+  const setExperience = useExtractionQuizStore((s) => s.setExperience);
   const selectedLabel = findChainById(selectedChainId)?.label ?? null;
   const modeLabel = getModeLabel(experience);
   const isTutor = isConversationalMode(experience);
   const greeting = buildGreeting(modeLabel, selectedLabel, isTutor);
-  // Both an explicit mode and a topic are required before a question can be
-  // served (Final Handoff §6/§8). Tutor has no question flow.
   const canStartQuestion =
-    !isBusy && Boolean(experience) && Boolean(selectedChainId) && !isTutor;
-
-  const placeholder = isTutor
-    ? selectedLabel
-      ? `Ask your tutor about ${selectedLabel}...`
-      : "Ask your tutor anything about Calcium & Bone..."
-    : selectedLabel
-    ? `Ask anything about ${selectedLabel}...`
-    : "Ask QuizRx anything...";
-
-  const handleSendDraft = async () => {
-    const value = draft.trim();
-    if (!value) return;
-    setDraft("");
-    await onPrompt(value);
-  };
-
-  const canSend = !isBusy && draft.trim().length > 0;
+    !isBusy && isQuestionMode(experience) && Boolean(selectedChainId);
+  const startLabel =
+    experience === "practice_studio" ? "Start Practice" : "Start a question";
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 pt-6 md:pt-10">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-        {/* Main column: heading -> instruction -> topic -> chat box */}
-        <div className="min-w-0">
-          <header className="mb-5">
-            <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
-              Calcium &amp; Bone
-            </span>
-            <h1 className="mt-3 text-3xl font-semibold text-[var(--primary)] md:text-4xl">
-              Questions That Make You Think.
-            </h1>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-zinc-600">
-              {greeting}
+    <section className="mx-auto w-full max-w-6xl px-4 pt-6 md:pt-8">
+      <header className={cn("mb-4", compact && "mb-3")}>
+        <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+          Calcium &amp; Bone
+        </span>
+        {!compact && (
+          <h1 className="mt-3 text-3xl font-semibold text-[var(--primary)] md:text-4xl">
+            Questions That Make You Think.
+          </h1>
+        )}
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-600 md:text-base">
+          {greeting}
+        </p>
+      </header>
+
+      <div className="mb-4">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
+          Choose a question experience
+        </h2>
+        <ModeSelectionCards disabled={isBusy} modes={QUESTION_MODES} />
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
+          Choose a topic
+        </h2>
+        <TopicDropdown
+          selectedChainId={selectedChainId}
+          onSelectChain={onSelectChain}
+        />
+      </div>
+
+      {isQuestionMode(experience) && !compact && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => onStartQuestion()}
+            disabled={!canStartQuestion}
+            className={cn(
+              "inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
+              !canStartQuestion && "cursor-not-allowed opacity-50"
+            )}
+          >
+            {startLabel}
+          </button>
+          {!canStartQuestion && !isBusy && (
+            <p className="mt-2 text-xs text-zinc-500">
+              {selectedChainId
+                ? "Choose QuizRx Reasoning or Practice Studio to begin."
+                : "Choose a Calcium & Bone topic to begin."}
             </p>
-          </header>
-
-          {/* Two-experience chooser, above the topic selector and chat (§7). */}
-          <div className="mb-4">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
-              Choose how you want to learn
-            </h2>
-            <ModeSelectionCards disabled={isBusy} />
-          </div>
-
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
-              Choose a topic
-            </h2>
-            <TopicDropdown
-              selectedChainId={selectedChainId}
-              onSelectChain={onSelectChain}
-            />
-          </div>
-
-          {/* Action-driven start: serve the first question without typing.
-              Hidden in Tutor mode, which is chat-first (no question flow). */}
-          {!isTutor && (
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => onStartQuestion()}
-                disabled={!canStartQuestion}
-                className={cn(
-                  "inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
-                  !canStartQuestion && "cursor-not-allowed opacity-50"
-                )}
-              >
-                Start a question
-              </button>
-              {!canStartQuestion && !isBusy && (
-                <p className="mt-2 text-xs text-zinc-500">
-                  {experience
-                    ? "Choose a Calcium & Bone topic to begin."
-                    : "Choose a learning mode and a topic to begin."}
-                </p>
-              )}
-            </div>
           )}
-
-          <div className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-xl shadow-zinc-900/5 ring-1 ring-black/5 transition-shadow focus-within:border-[var(--primary)]/40 focus-within:ring-2 focus-within:ring-[var(--primary)]/25 md:p-5">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendDraft();
-                }
-              }}
-              placeholder={placeholder}
-              rows={4}
-              disabled={isBusy}
-              autoFocus
-              className="w-full resize-none bg-transparent px-1 text-base leading-relaxed text-zinc-800 outline-none placeholder:text-zinc-400"
-            />
-
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-xs text-zinc-400">
-                Press Enter to send · Shift + Enter for a new line
-              </span>
-              <button
-                type="button"
-                onClick={handleSendDraft}
-                disabled={!canSend}
-                aria-label="Send"
-                className={cn(
-                  "inline-flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full bg-[var(--primary)] text-white shadow-sm transition-all hover:bg-[var(--primary)]/90 sm:self-auto",
-                  !canSend && "opacity-50"
-                )}
-              >
-                <ArrowUp className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
         </div>
+      )}
 
-        {/* Suggested prompts: right on desktop, below the chat box on mobile.
-            Tutor surfaces conversational prompts instead of the question set. */}
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => {
+            setExperience("tutor");
+            onEnterTutor();
+          }}
+          className={cn(
+            "w-full rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+            isTutor
+              ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-sm"
+              : "border-zinc-200 bg-white hover:border-[var(--primary)]/50"
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-[var(--primary)]">
+              {TUTOR_MODE.label}
+            </span>
+            {TUTOR_MODE.badge && (
+              <span className="inline-flex w-fit items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--primary)]">
+                {TUTOR_MODE.badge}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+            {TUTOR_MODE.description}
+          </p>
+          <p className="mt-2 text-[11px] text-zinc-500">
+            Using the chat box below switches you into Tutor. Your Reasoning and
+            Practice Studio questions stay where you left them.
+          </p>
+        </button>
+      </div>
+
+      {isTutor && (
         <SuggestedPromptsPanel
           onSelect={onPrompt}
           disabled={isBusy}
-          prompts={isTutor ? TUTOR_SUGGESTED_PROMPTS : undefined}
-          title={isTutor ? "Try asking" : undefined}
-          className="lg:sticky lg:top-4"
+          prompts={TUTOR_SUGGESTED_PROMPTS}
+          title="Try asking"
+          className="mb-4"
         />
-      </div>
+      )}
     </section>
   );
 };

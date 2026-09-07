@@ -12,6 +12,7 @@ import {
   type ArchivedSession,
   type ExtractionEntry,
   findChainById,
+  flattenModeEntries,
   useArchivedSessionsStore,
   useExtractionQuizStore,
 } from "@/modules/extraction-quiz";
@@ -53,10 +54,16 @@ export function ChatHistorySidebar() {
     return () => mq.removeEventListener("change", update);
   }, []);
   const entries = useExtractionQuizStore((s) => s.entries);
+  const modeEntries = useExtractionQuizStore((s) => s.modeEntries);
+  const experience = useExtractionQuizStore((s) => s.experience);
+  const lastQuestionExperience = useExtractionQuizStore(
+    (s) => s.lastQuestionExperience
+  );
   const sessionId = useExtractionQuizStore((s) => s.sessionId);
   const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
   const resetSession = useExtractionQuizStore((s) => s.resetSession);
   const loadSession = useExtractionQuizStore((s) => s.loadSession);
+  const allEntries = flattenModeEntries(modeEntries);
 
   const archivedSessions = useArchivedSessionsStore((s) => s.sessions);
   const archiveSession = useArchivedSessionsStore((s) => s.archive);
@@ -64,23 +71,26 @@ export function ChatHistorySidebar() {
 
   const recentAttempts = useMemo(
     () =>
-      entries
+      allEntries
         .filter(
           (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
             e.kind === "attempt"
         )
         .slice()
         .reverse(),
-    [entries]
+    [allEntries]
   );
 
   const archiveCurrentIfNeeded = () => {
-    if (entries.length === 0) return;
+    if (allEntries.length === 0) return;
     archiveSession({
       sessionId,
       chainId: selectedChainId,
-      title: deriveSessionTitle(selectedChainId, entries),
-      entries,
+      title: deriveSessionTitle(selectedChainId, allEntries),
+      entries: allEntries,
+      modeEntries,
+      experience,
+      lastQuestionExperience,
     });
   };
 
@@ -102,6 +112,9 @@ export function ChatHistorySidebar() {
       sessionId: archived.sessionId,
       chainId: archived.chainId,
       entries: archived.entries,
+      modeEntries: archived.modeEntries,
+      experience: archived.experience,
+      lastQuestionExperience: archived.lastQuestionExperience,
     });
     if (isOverlay) closeChatSidebar();
   };
@@ -176,7 +189,7 @@ export function ChatHistorySidebar() {
                   </p>
                   {recentAttempts.length === 0 ? (
                     <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                      No questions yet. Pick a topic and ask a question to begin.
+                      No questions yet. Choose Reasoning or Practice Studio to begin.
                     </p>
                   ) : (
                     <ul className="space-y-2">

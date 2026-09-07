@@ -1,12 +1,17 @@
 import { create } from "zustand";
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import type { ExtractionEntry } from "./extraction-quiz-store";
+import type { ExtractionEntry, ModeEntries } from "./extraction-quiz-store";
+import type { LearningExperience } from "../types";
+import type { QuestionExperience } from "../data/learning-modes";
 
 export type ArchivedSession = {
   sessionId: string;
   title: string;
   chainId: string | null;
   entries: ExtractionEntry[];
+  modeEntries?: ModeEntries;
+  experience?: LearningExperience | null;
+  lastQuestionExperience?: QuestionExperience | null;
   archivedAt: number;
   attemptCount: number;
 };
@@ -16,6 +21,9 @@ export type ArchiveSnapshot = {
   title: string;
   chainId: string | null;
   entries: ExtractionEntry[];
+  modeEntries?: ModeEntries;
+  experience?: LearningExperience | null;
+  lastQuestionExperience?: QuestionExperience | null;
 };
 
 interface ArchivedSessionsState {
@@ -51,6 +59,9 @@ export const useArchivedSessionsStore = create<
               title: snapshot.title,
               chainId: snapshot.chainId,
               entries: snapshot.entries,
+              modeEntries: snapshot.modeEntries,
+              experience: snapshot.experience,
+              lastQuestionExperience: snapshot.lastQuestionExperience,
               archivedAt: Date.now(),
               attemptCount: countAttempts(snapshot.entries),
             };

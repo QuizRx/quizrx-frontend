@@ -11,7 +11,7 @@ export type LearningModeMeta = {
   badge?: string;
 };
 
-export const LEARNING_MODES: readonly LearningModeMeta[] = [
+export const QUESTION_MODES: readonly LearningModeMeta[] = [
   {
     value: "reasoning",
     label: "QuizRx Reasoning",
@@ -25,13 +25,19 @@ export const LEARNING_MODES: readonly LearningModeMeta[] = [
       "Reinforce essential knowledge with short-answer recall questions.",
     badge: "Short-answer",
   },
-  {
-    value: "tutor",
-    label: "Tutor",
-    description:
-      "Chat with a medical tutor to explain concepts, compare conditions, and review topics.",
-    badge: "Conversational",
-  },
+] as const;
+
+export const TUTOR_MODE: LearningModeMeta = {
+  value: "tutor",
+  label: "Tutor",
+  description:
+    "Ask questions, explain concepts, compare conditions, and explore the selected topic.",
+  badge: "Conversational",
+};
+
+export const LEARNING_MODES: readonly LearningModeMeta[] = [
+  ...QUESTION_MODES,
+  TUTOR_MODE,
 ] as const;
 
 export const MODE_LABELS: Record<LearningExperience, string> = {
@@ -43,9 +49,16 @@ export const MODE_LABELS: Record<LearningExperience, string> = {
 // Tutor is a conversation, not an action-driven question flow. Callers use this
 // to hide question affordances (Start / Next question) and treat the chat box
 // as the primary surface.
+export type QuestionExperience = "reasoning" | "practice_studio";
+
 export const isConversationalMode = (
   mode: LearningExperience | null
 ): boolean => mode === "tutor";
+
+export const isQuestionMode = (
+  mode: LearningExperience | null
+): mode is QuestionExperience =>
+  mode === "reasoning" || mode === "practice_studio";
 
 export const getModeLabel = (mode: LearningExperience | null): string | null =>
   mode ? MODE_LABELS[mode] : null;

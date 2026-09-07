@@ -2,29 +2,39 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@/core/lib/utils";
-import { LEARNING_MODES } from "../data/learning-modes";
+import {
+  LEARNING_MODES,
+  type LearningModeMeta,
+} from "../data/learning-modes";
 import { useExtractionQuizStore } from "../store/extraction-quiz-store";
 
-// Three-experience chooser (Final Handoff §6/§7). The learner explicitly picks
-// a mode before the app routes learning requests — it never guesses silently.
-// Presented above the topic selector and chat workspace.
+// Experience chooser. Question modes sit together near the top; Tutor can be
+// rendered separately next to the chat box with a one- or two-item `modes` list.
 export function ModeSelectionCards({
   disabled = false,
   className,
+  modes = LEARNING_MODES,
 }: {
   disabled?: boolean;
   className?: string;
+  modes?: readonly LearningModeMeta[];
 }) {
   const experience = useExtractionQuizStore((s) => s.experience);
   const setExperience = useExtractionQuizStore((s) => s.setExperience);
+  const columns =
+    modes.length === 1
+      ? "grid-cols-1"
+      : modes.length === 2
+        ? "grid-cols-1 sm:grid-cols-2"
+        : "grid-cols-1 sm:grid-cols-3";
 
   return (
     <div
       role="radiogroup"
       aria-label="Choose a learning mode"
-      className={cn("grid grid-cols-1 gap-3 sm:grid-cols-3", className)}
+      className={cn("grid gap-3", columns, className)}
     >
-      {LEARNING_MODES.map((mode) => {
+      {modes.map((mode) => {
         const active = experience === mode.value;
         return (
           <button
