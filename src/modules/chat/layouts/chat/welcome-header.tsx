@@ -1,263 +1,164 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { cn } from "@/core/lib/utils";
+import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
+import { ModeSelectionCards } from "@/modules/extraction-quiz/components/mode-selection-cards";
+import { SuggestedPromptsPanel } from "@/modules/extraction-quiz/components/suggested-prompts-panel";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/core/components/ui/card";
-import { ProjectLogo } from "@/core/components/ui/logo";
-import { useAuth } from "@/core/providers/auth";
-import {
-  Calendar,
-  FileText,
-  LayoutGrid,
-  MessageCircleQuestion,
-} from "lucide-react";
-import { useChat } from "../../store/chat-store";
-import { Badge } from "@/core/components/ui/badge";
-import { Button } from "@/core/components/ui/button";
-import { motion } from "motion/react";
-import FormTopics from "./form-topics";
-import Link from "next/link";
-// Type definition for welcome cards
-type CardType = {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  isPrimary: boolean;
-  prompt?: string;
-  action?: () => void;
+  QUESTION_MODES,
+  TUTOR_MODE,
+  getModeLabel,
+  isConversationalMode,
+  isQuestionMode,
+} from "@/modules/extraction-quiz/data/learning-modes";
+import { TUTOR_SUGGESTED_PROMPTS } from "@/modules/extraction-quiz/data/suggested-prompts";
+import { useExtractionQuizStore } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+
+type WelcomeHeaderProps = {
+  selectedChainId: string | null;
+  onSelectChain: (chainId: string | null) => void;
+  onPrompt: (prompt: string) => Promise<void> | void;
+  onStartQuestion: () => Promise<void> | void;
+  onEnterTutor: () => void;
+  isBusy?: boolean;
 };
 
-export const WelcomeHeader = () => {
-  const { user } = useAuth();
-  const { handleSubmit } = useChat();
-  const [openQuiz, setOpenQuiz] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Check for mobile view on client side
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    // Initial check
-    checkMobile();
-
-    // Add event listener for window resize
-    window.addEventListener("resize", checkMobile);
-
-    // Cleanup
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // Card data mapping for welcome layout
-  const cardData: CardType[] = [
-    {
-      icon: FileText,
-      title: "Create",
-      description: "Curated questions based on your performance.",
-      isPrimary: true,
-      prompt: "Show me a recommended question based on my performance",
-    },
-    {
-      icon: LayoutGrid,
-      title: "Todays Challenge",
-      description: "A hand-picked question to test your knolwedge.",
-      isPrimary: false,
-      prompt: "What's today's Endocrinology challenge question?",
-    },
-    {
-      icon: MessageCircleQuestion,
-      title: "Quiz from Selection",
-      description: "Select a topic and a subtopic to have a personalized quiz.",
-      isPrimary: false,
-      action: () => {
-        setOpenQuiz(true);
-      },
-    },
-  ];
-
-  // Preset prompt buttons
-  const presetPrompts = [
-    "Help me prepare for an upcoming test",
-    "Explain a difficult concept to me",
-    "Generate practice questions on a topic",
-    "Analyze my weak areas",
-  ];
-
-  const handleCardClick = (card: CardType) => {
-    if (card.prompt) {
-      handleSubmit(card.prompt);
+const buildGreeting = (
+  modeLabel: string | null,
+  topicLabel: string | null,
+  isTutor: boolean
+): string => {
+  if (!modeLabel) {
+    return "QuizRx asks you questions in Reasoning or Practice Studio. You ask QuizRx questions in Tutor.";
+  }
+  if (isTutor) {
+    if (!topicLabel) {
+      return "You're in Tutor. Pick a Calcium & Bone topic, then ask me to explain a concept, compare two conditions, or review what matters most.";
     }
-    if (card.action) {
-      card.action();
-    }
-  };
+    return `You're in Tutor for ${topicLabel}. Ask me to explain, compare, elaborate, or review — this is not a question generator.`;
+  }
+  if (!topicLabel) {
+    return `You're in ${modeLabel}. Choose a Calcium & Bone topic, then use Start to begin. The chat box below is for Tutor.`;
+  }
+  return `You're in ${modeLabel}, exploring ${topicLabel}. Use Start or Next question — you don't need to type "quiz me."`;
+};
 
-  const handlePresetPromptClick = (prompt: string) => {
-    handleSubmit(prompt);
-  };
-
-  // Container animations
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
-    },
-  };
-
-  // Header animations
-  const headerVariants = {
-    hidden: { opacity: 0, y: -20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-        ease: [0.17, 0.67, 0.83, 0.67] as const,
-      },
-    },
-  };
-
-  // Card animations
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        ease: [0.17, 0.67, 0.83, 0.67] as const,
-      },
-    },
-    hover: {
-      scale: 1.03,
-      transition: { duration: 0.2 },
-    },
-    tap: {
-      scale: 0.97,
-      transition: { duration: 0.1 },
-    },
-  };
-
-  // Badge animations
-  const badgeVariants = {
-    hidden: { opacity: 0, scale: 0.8 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      transition: {
-        duration: 0.3,
-      },
-    },
-    hover: {
-      scale: 1.05,
-      transition: { duration: 0.2 },
-    },
-    tap: {
-      scale: 0.9,
-      transition: { duration: 0.1 },
-    },
-  };
+export const WelcomeHeader = ({
+  selectedChainId,
+  onSelectChain,
+  onPrompt,
+  onStartQuestion,
+  onEnterTutor,
+  isBusy = false,
+}: WelcomeHeaderProps) => {
+  const experience = useExtractionQuizStore((s) => s.experience);
+  const setExperience = useExtractionQuizStore((s) => s.setExperience);
+  const selectedLabel = findChainById(selectedChainId)?.label ?? null;
+  const modeLabel = getModeLabel(experience);
+  const isTutor = isConversationalMode(experience);
+  const greeting = buildGreeting(modeLabel, selectedLabel, isTutor);
+  const canStartQuestion =
+    !isBusy && isQuestionMode(experience) && Boolean(selectedChainId);
+  const startLabel =
+    experience === "practice_studio" ? "Start Practice" : "Start a question";
 
   return (
-    <>
-      {!openQuiz && (
-        <motion.div
-          className="flex flex-col items-center w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8 py-3 sm:py-4 px-3 sm:px-4 md:px-6 lg:px-8 3xl:mt-40"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
+    <section className="mx-auto w-full max-w-6xl px-4 pt-6 md:pt-8">
+      <header className="mb-4">
+        <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+          Calcium &amp; Bone
+        </span>
+        <h1 className="mt-3 text-3xl font-semibold text-[var(--primary)] md:text-4xl">
+          Questions That Make You Think.
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-600 md:text-base">
+          {greeting}
+        </p>
+      </header>
+
+      <div className="mb-4">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
+          Choose a question experience
+        </h2>
+        <ModeSelectionCards disabled={isBusy} modes={QUESTION_MODES} />
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--primary)]">
+          Choose a topic
+        </h2>
+        <TopicDropdown
+          selectedChainId={selectedChainId}
+          onSelectChain={onSelectChain}
+        />
+      </div>
+
+      {isQuestionMode(experience) && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => onStartQuestion()}
+            disabled={!canStartQuestion}
+            className={cn(
+              "inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[var(--primary)]/90",
+              !canStartQuestion && "cursor-not-allowed opacity-50"
+            )}
+          >
+            {startLabel}
+          </button>
+          {!canStartQuestion && !isBusy && (
+            <p className="mt-2 text-xs text-zinc-500">
+              {selectedChainId
+                ? "Choose QuizRx Reasoning or Practice Studio to begin."
+                : "Choose a Calcium & Bone topic to begin."}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => {
+            setExperience("tutor");
+            onEnterTutor();
+          }}
+          className={cn(
+            "w-full rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+            isTutor
+              ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-sm"
+              : "border-zinc-200 bg-white hover:border-[var(--primary)]/50"
+          )}
         >
-          {/* Welcome section */}
-          <div className="text-center max-w-2xl flex flex-col items-center justify-center gap-2 sm:gap-3 md:gap-4">
-            <img src="/logo/light-log.svg" className="w-7 sm:w-8 h-7 sm:h-8" />
-            <h2 className="text-base sm:text-lg md:text-xl text-zinc-400 font-medium">
-              Hi, {user?.name.split(" ")[0]}
-            </h2>
-            <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-medium text-primary px-2">
-              How Can I Help You Today?
-            </h1>
-            <p className="text-muted-foreground max-w-lg mx-auto text-xs sm:text-sm px-2">
-              Let's dive into today&apos;s quiz journey. Whether you're here to
-              practice or challenge yourself, we&apos;ve got your back.
-            </p>
-            <p className="text-muted-foreground max-w-lg mx-auto text-[11px] sm:text-xs px-2">
-              Privacy notice: QuizRx stores your account details, chat history,
-              and generated questions during this closed beta. Read more in our{" "}
-              <Link href="/privacy-policy" className="text-primary underline">
-                privacy notice
-              </Link>
-              .
-            </p>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-semibold text-[var(--primary)]">
+              {TUTOR_MODE.label}
+            </span>
+            {TUTOR_MODE.badge && (
+              <span className="inline-flex w-fit items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--primary)]">
+                {TUTOR_MODE.badge}
+              </span>
+            )}
           </div>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+            {TUTOR_MODE.description}
+          </p>
+          <p className="mt-2 text-[11px] text-zinc-500">
+            Using the chat box below switches you into Tutor. Your Reasoning and
+            Practice Studio questions stay where you left them.
+          </p>
+        </button>
+      </div>
 
-          {/* Information cards */}
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 w-full max-w-3xl mt-4 sm:mt-6 min-w-0"
-            variants={containerVariants}
-          >
-            {cardData.map((card, index) => (
-              <motion.div
-                key={index}
-                variants={cardVariants}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <div
-                  className={`
-                shadow-none border p-3 sm:p-4 border-zinc-200 rounded-lg h-full
-                ${
-                  card.isPrimary
-                    ? "bg-gradient-to-br from-primary/80 to-primary text-white"
-                    : "bg-card hover:bg-gradient-to-br hover:from-primary/80 hover:to-primary hover:text-white"
-                } cursor-pointer group`}
-                  onClick={() => handleCardClick(card)}
-                >
-                  <card.icon className="h-5 w-5 mb-2" />
-                  <CardTitle className="text-sm sm:text-base md:text-lg mb-1">
-                    {card.title}
-                  </CardTitle>
-                  <div>
-                    <p
-                      className={`text-xs leading-relaxed ${
-                        card.isPrimary
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground group-hover:text-primary-foreground"
-                      }`}
-                    >
-                      {card.description}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.div>
+      {isTutor && (
+        <SuggestedPromptsPanel
+          onSelect={onPrompt}
+          disabled={isBusy}
+          prompts={TUTOR_SUGGESTED_PROMPTS}
+          title="Try asking"
+          className="mb-4"
+        />
       )}
-      {openQuiz && (
-        <motion.div
-          className="flex flex-col items-center w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8 py-3 sm:py-4 px-3 sm:px-4 md:px-6 lg:px-8 3xl:mt-40"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-        >
-          <Button
-            className="self-start mb-2 px-2 sm:px-3 py-1 text-sm transition"
-            onClick={() => setOpenQuiz(false)}
-          >
-            ← Back
-          </Button>
-
-          <FormTopics />
-        </motion.div>
-      )}
-    </>
+    </section>
   );
 };

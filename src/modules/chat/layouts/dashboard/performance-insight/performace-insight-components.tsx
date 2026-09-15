@@ -105,7 +105,7 @@ export function KnowledgeGapChart({ loading, data, trend }: { loading?: boolean;
         </div>
       </CardHeader>
       <CardContent className="pb-4">
-        <div className="h-[355px] w-full">
+        <div className="h-[260px] w-full sm:h-[355px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
@@ -160,7 +160,7 @@ export function KnowledgeGapChart({ loading, data, trend }: { loading?: boolean;
         </div>
       </CardContent>
       <CardFooter className="pt-4 border-t border-blue-200">
-        <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-gray-600">
             Performance overview across all topics
           </div>
@@ -319,7 +319,7 @@ export function ScoreProgressChart({ loading, data }: { loading?: boolean; data?
       </CardHeader>
 
       <CardContent className="pb-4">
-        <div className="mb-4 grid grid-cols-2 gap-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3">
             <div className="text-sm text-gray-600 mb-1">Average Score</div>
             <div className="text-2xl font-bold text-black-500">{averageScore}%</div>
@@ -373,7 +373,7 @@ export function ScoreProgressChart({ loading, data }: { loading?: boolean; data?
       </CardContent>
 
       <CardFooter className="pt-4 border-t border-indigo-200">
-        <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col gap-2 w-full sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-gray-600">
             Weekly performance summary
           </div>
@@ -427,7 +427,7 @@ export default function DashboardComponents() {
     console.log("Performance Dashboard Data:", data);
   }, [data]);
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8 p-4 sm:p-6">
       <MetricCards loading={loading} data={data?.GetPerformanceDashboard.metricCards} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <KnowledgeGapChart 

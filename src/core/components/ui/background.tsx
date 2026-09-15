@@ -15,8 +15,8 @@ const Background = ({
   return (
     <div
       className={cn(
-        "relative w-full h-[90vh] rounded-3xl -z-10 flex flex-col items-center justify-center",
-        className
+        "relative w-full h-[100vh] rounded-3xl -z-10 flex flex-col items-center justify-center",
+        className,
       )}
       style={{
         backgroundImage: `url(${image})`,

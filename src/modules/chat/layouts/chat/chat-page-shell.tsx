@@ -1,96 +1,524 @@
 "use client";
 
-import { ChatInput } from "@/modules/chat/layouts/chat/chat-input";
-import { WelcomeHeader } from "@/modules/chat/layouts/chat/welcome-header";
+import { ArrowUp, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/core/components/ui/button";
+import { cn } from "@/core/lib/utils";
 import { useChatSidebar } from "@/modules/chat/providers/chat-sidebar";
-import { useEffect, useRef } from "react";
-import { useChat } from "@/modules/chat/store/chat-store";
-import { useSplitView } from "@/modules/chat/store/split-view-store";
-import { ChatLayout } from "@/modules/chat/layouts/chat/chat";
-import AvatarChat from "@/modules/chat/layouts/chat/avatar-chat";
-import { useAvatarStore } from "@/modules/chat/store/avatar-store";
+import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
+import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
+import { ExperienceToggle } from "@/modules/extraction-quiz/components/experience-toggle";
+import { LearningStatusBar } from "@/modules/extraction-quiz/components/learning-status-bar";
+import { SuggestedPromptsPanel } from "@/modules/extraction-quiz/components/suggested-prompts-panel";
+import { TUTOR_SUGGESTED_PROMPTS } from "@/modules/extraction-quiz/data/suggested-prompts";
+import { TopicChangeDialog } from "@/modules/extraction-quiz/components/topic-change-dialog";
+import { useLearningAction } from "@/modules/extraction-quiz/hooks/use-learning-action";
+import { learningQuestionToExtractionData } from "@/modules/extraction-quiz/utils/learning-action";
+import {
+  flattenModeEntries,
+  useExtractionQuizStore,
+} from "@/modules/extraction-quiz/store/extraction-quiz-store";
+import type { ExtractionEntry } from "@/modules/extraction-quiz/store/extraction-quiz-store";
+import { useArchivedSessionsStore } from "@/modules/extraction-quiz/store/archived-sessions-store";
+import {
+  isConversationalMode,
+  isQuestionMode,
+} from "@/modules/extraction-quiz/data/learning-modes";
+import type {
+  LearningActionQuestionPayload,
+  LearningActionResponse,
+  LearningActionTextPayload,
+  LearningTurn,
+} from "@/modules/extraction-quiz/types";
+import { WelcomeHeader } from "./welcome-header";
 
 type ChatPageShellProps = {
-  /**
-   * If true, render the welcome header even when the in-memory chat is empty.
-   * The /dashboard route uses this; the /dashboard/chat/[id] route does not so
-   * that loading a saved thread never flashes the welcome screen.
-   */
   showWelcomeWhenEmpty?: boolean;
+};
+
+const DONT_ASK_KEY = "quizrx-topic-change-dont-ask";
+
+const FRIENDLY_ERROR_TEXT =
+  "Sorry, I couldn't generate a question just now. Please try again.";
+
+const collectSeenQuestionIds = (entries: ExtractionEntry[]): string[] =>
+  entries
+    .filter(
+      (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
+        e.kind === "attempt"
+    )
+    .map((e) => e.attempt.question.question.dp_id)
+    .filter((id): id is string => Boolean(id));
+
+const MAX_TUTOR_HISTORY = 8;
+const collectTutorHistory = (entries: ExtractionEntry[]): LearningTurn[] =>
+  entries
+    .filter(
+      (e): e is Extract<ExtractionEntry, { kind: "user-prompt" | "assistant" }> =>
+        e.kind === "user-prompt" || e.kind === "assistant"
+    )
+    .map(
+      (e): LearningTurn => ({
+        role: e.kind === "user-prompt" ? "user" : "assistant",
+        content: e.content,
+      })
+    )
+    .slice(-MAX_TUTOR_HISTORY);
+
+const deriveSessionTitle = (
+  entries: ExtractionEntry[],
+  chainId: string | null
+): string => {
+  const firstPrompt = entries.find((e) => e.kind === "user-prompt");
+  if (firstPrompt && firstPrompt.kind === "user-prompt") {
+    const text = firstPrompt.content.trim();
+    if (text) return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  }
+  return findChainById(chainId)?.label ?? "Study session";
 };
 
 export function ChatPageShell({
   showWelcomeWhenEmpty = false,
 }: ChatPageShellProps) {
   const { isChatSidebarOpen } = useChatSidebar();
-  const { isChatStarted, messages } = useChat();
-  const { isReviewMode } = useSplitView();
+  const entries = useExtractionQuizStore((s) => s.entries);
+  const modeEntries = useExtractionQuizStore((s) => s.modeEntries);
+  const sessionId = useExtractionQuizStore((s) => s.sessionId);
+  const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
+  const setSelectedChainId = useExtractionQuizStore(
+    (s) => s.setSelectedChainId
+  );
+  const resetSession = useExtractionQuizStore((s) => s.resetSession);
+  const appendUserPrompt = useExtractionQuizStore((s) => s.appendUserPrompt);
+  const appendAssistant = useExtractionQuizStore((s) => s.appendAssistant);
+  const appendSystem = useExtractionQuizStore((s) => s.appendSystem);
+  const appendAttempt = useExtractionQuizStore((s) => s.appendAttempt);
+  const setIsFetching = useExtractionQuizStore((s) => s.setIsFetching);
+  const isFetching = useExtractionQuizStore((s) => s.isFetching);
+  const experience = useExtractionQuizStore((s) => s.experience);
+  const lastQuestionExperience = useExtractionQuizStore(
+    (s) => s.lastQuestionExperience
+  );
+  const setExperience = useExtractionQuizStore((s) => s.setExperience);
+  const actionInFlightRef = useRef(false);
+  const archiveSession = useArchivedSessionsStore((s) => s.archive);
+  const runLearningAction = useLearningAction();
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { isAvatarVisible, hideAvatar } = useAvatarStore();
+  const [draft, setDraft] = useState("");
+
+  const [pendingTopic, setPendingTopic] = useState<{
+    chainId: string | null;
+  } | null>(null);
+  const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
 
   useEffect(() => {
-    if (messages.length > 0 && !isReviewMode) {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop =
-          scrollContainerRef.current.scrollHeight;
-      }
+    try {
+      setDontAskAgain(localStorage.getItem(DONT_ASK_KEY) === "1");
+    } catch {
+      // ignore storage access errors (private mode, etc.)
+    }
+  }, []);
 
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => {
+    if (entries.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [entries.length, isFetching, experience]);
+
+  const allEntries = flattenModeEntries(modeEntries);
+  const hasAnyEntries = allEntries.length > 0;
+  const selectedLabel = findChainById(selectedChainId)?.label ?? null;
+  const isTutor = isConversationalMode(experience);
+  const hasCurrentAttempts = entries.some((e) => e.kind === "attempt");
+  const canStart =
+    isQuestionMode(experience) && Boolean(selectedChainId) && !hasCurrentAttempts;
+  const canNext = isQuestionMode(experience) && hasCurrentAttempts;
+  const bottomPlaceholder = selectedLabel
+    ? `Ask your tutor about ${selectedLabel}...`
+    : "Ask your tutor anything about Calcium & Bone...";
+
+  const enterTutor = () => {
+    if (experience !== "tutor") setExperience("tutor");
+  };
+
+  const handleSelectChain = (chainId: string | null) => {
+    if (chainId === selectedChainId) return;
+    if (!hasAnyEntries || dontAskAgain) {
+      setSelectedChainId(chainId);
+      return;
+    }
+    setPendingTopic({ chainId });
+    setTopicDialogOpen(true);
+  };
+
+  const handleContinueHere = () => {
+    if (pendingTopic) setSelectedChainId(pendingTopic.chainId);
+    setPendingTopic(null);
+    setTopicDialogOpen(false);
+  };
+
+  const handleStartNewSession = () => {
+    const target = pendingTopic?.chainId ?? null;
+    archiveSession({
+      sessionId,
+      title: deriveSessionTitle(allEntries, selectedChainId),
+      chainId: selectedChainId,
+      entries: allEntries,
+      modeEntries,
+      experience,
+      lastQuestionExperience,
+    });
+    resetSession();
+    setSelectedChainId(target);
+    setPendingTopic(null);
+    setTopicDialogOpen(false);
+  };
+
+  const handleDontAskAgainChange = (value: boolean) => {
+    setDontAskAgain(value);
+    try {
+      if (value) localStorage.setItem(DONT_ASK_KEY, "1");
+      else localStorage.removeItem(DONT_ASK_KEY);
+    } catch {
+      // ignore storage access errors
+    }
+  };
+
+  const handleLearningResponse = (response: LearningActionResponse) => {
+    switch (response.responseType) {
+      case "question": {
+        const payload = response.payload as LearningActionQuestionPayload;
+        const chainId = selectedChainId ?? payload.topic_id ?? "";
+        appendAttempt(chainId, learningQuestionToExtractionData(payload));
+        return;
+      }
+      case "friendly_error": {
+        const payload = response.payload as LearningActionTextPayload;
+        appendSystem(payload?.text ?? FRIENDLY_ERROR_TEXT);
+        return;
+      }
+      default: {
+        const payload = response.payload as LearningActionTextPayload;
+        if (payload?.text) appendAssistant(payload.text);
+        return;
       }
     }
-  }, [messages.length, isReviewMode]);
+  };
 
-  const shouldRenderChatLayout = isChatStarted || !showWelcomeWhenEmpty;
+  const runPrompt = async (prompt: string) => {
+    const text = prompt.trim();
+    if (!text || actionInFlightRef.current) return;
+    if (useExtractionQuizStore.getState().isFetching) return;
+
+    enterTutor();
+    const { modeEntries: priorModes } = useExtractionQuizStore.getState();
+    const tutorEntries = priorModes.tutor;
+    const isFirstTurn = tutorEntries.length === 0;
+
+    actionInFlightRef.current = true;
+    appendUserPrompt(text);
+    setIsFetching(true);
+    try {
+      const response = await runLearningAction({
+        message: text,
+        experience: "tutor",
+        topicId: selectedChainId,
+        topicDisplayName: findChainById(selectedChainId)?.label ?? null,
+        sessionId,
+        isFirstTurn,
+        history: collectTutorHistory(tutorEntries),
+      });
+      handleLearningResponse(response);
+    } finally {
+      actionInFlightRef.current = false;
+      setIsFetching(false);
+    }
+  };
+
+  const runQuestionAction = async (
+    action: "start_question" | "next_question"
+  ) => {
+    if (actionInFlightRef.current) return;
+    if (useExtractionQuizStore.getState().isFetching) return;
+    const current = useExtractionQuizStore.getState();
+    if (!isQuestionMode(current.experience)) return;
+    const priorEntries = current.modeEntries[current.experience];
+    actionInFlightRef.current = true;
+    setIsFetching(true);
+    try {
+      const input = {
+        message:
+          action === "next_question" ? "next question" : "start a question",
+        experience: current.experience,
+        topicId: selectedChainId,
+        topicDisplayName: findChainById(selectedChainId)?.label ?? null,
+        sessionId,
+        action,
+        seenQuestionIds: collectSeenQuestionIds(priorEntries),
+        isFirstTurn: priorEntries.length === 0,
+      } as const;
+
+      let response = await runLearningAction(input);
+      if (response.responseType === "friendly_error") {
+        await new Promise((r) => setTimeout(r, 800));
+        response = await runLearningAction(input);
+      }
+      handleLearningResponse(response);
+    } finally {
+      actionInFlightRef.current = false;
+      setIsFetching(false);
+    }
+  };
+
+  const handleSend = async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft("");
+    await runPrompt(text);
+  };
+
+  // Discovery UI until both a mode and a topic are chosen; then the question
+  // or Tutor conversation owns the screen.
+  const isSetupComplete = Boolean(experience && selectedChainId);
+  const showDiscovery =
+    !isSetupComplete && (showWelcomeWhenEmpty || !hasAnyEntries);
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden">
+    <div className="relative flex flex-col overflow-hidden h-full">
       <div
-        className={`flex flex-col flex-1 min-h-0 transition-all duration-500 ${
-          isChatSidebarOpen ? "lg:pr-[300px]" : ""
-        }`}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 bg-white/55"
+      />
+      <img
+        aria-hidden
+        src="/chatBG.png"
+        alt=""
+        className="pointer-events-none absolute bottom-0 left-4 z-1 hidden h-auto w-[220px] max-w-[32vw] select-none object-contain opacity-90 sm:block sm:left-72 sm:w-[280px] md:w-[340px] lg:w-[400px]"
+      />
+
+      <div
+        className={cn(
+          "relative z-10 flex flex-1 flex-col min-h-0 transition-all duration-500",
+          isChatSidebarOpen ? "lg:pl-[300px]" : ""
+        )}
       >
         <div
           ref={scrollContainerRef}
-          className={`flex-1 overflow-x-hidden px-2 pt-2 min-h-0 ${
-            isReviewMode ? "overflow-hidden" : "overflow-y-auto"
-          }`}
+          className="flex-1 overflow-x-hidden overflow-y-auto px-2 pt-2 min-h-0 mt-12"
           style={{
             paddingBottom:
-              "max(100px, calc(80px + env(safe-area-inset-bottom, 0px)))",
+              "max(160px, calc(140px + env(safe-area-inset-bottom, 0px)))",
           }}
         >
-          <div className="flex flex-col items-center overflow-x-hidden">
-            {shouldRenderChatLayout ? (
-              <div
-                className={`w-full ${
-                  isReviewMode ? "h-full" : "max-w-5xl"
-                } mx-auto pb-4`}
-              >
-                <AvatarChat isOpen={isAvatarVisible} onClose={hideAvatar} />
-                <ChatLayout />
-                {!isReviewMode && <div ref={messagesEndRef} />}
-              </div>
-            ) : (
-              <WelcomeHeader />
+          {showDiscovery ? (
+            <WelcomeHeader
+              selectedChainId={selectedChainId}
+              onSelectChain={handleSelectChain}
+              onPrompt={runPrompt}
+              onStartQuestion={() => runQuestionAction("start_question")}
+              onEnterTutor={() => chatInputRef.current?.focus()}
+              isBusy={isFetching}
+            />
+          ) : (
+            <div className="mx-auto w-full max-w-4xl px-4 pt-4">
+              <LearningStatusBar
+                topicLabel={selectedLabel}
+                experience={experience}
+                lastQuestionExperience={lastQuestionExperience}
+                onReturnToQuestion={() => {
+                  if (lastQuestionExperience)
+                    setExperience(lastQuestionExperience);
+                }}
+                onNextQuestion={() => runQuestionAction("next_question")}
+                onStartQuestion={() => runQuestionAction("start_question")}
+                canStart={canStart}
+                canNext={canNext}
+                isBusy={isFetching}
+                className="mb-4"
+              />
+              {isTutor && entries.length === 0 && !isFetching && (
+                <SuggestedPromptsPanel
+                  onSelect={runPrompt}
+                  disabled={isFetching}
+                  prompts={TUTOR_SUGGESTED_PROMPTS}
+                  compact
+                  className="mb-4"
+                />
+              )}
+            </div>
+          )}
+
+          {(hasCurrentAttempts || (isTutor && entries.length > 0)) && (
+            <ChatThreadView
+              onNextQuestion={() => runQuestionAction("next_question")}
+              showNext={canNext}
+            />
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
+          isChatSidebarOpen ? "lg:pl-[316px]" : ""
+        )}
+        style={{
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              {isTutor
+                ? "Tutor — ask about what you just learned"
+                : "Tap the box to ask the Tutor. Your current question stays saved."}
+            </span>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+              <ExperienceToggle disabled={isFetching} />
+              <TopicDropdown
+                selectedChainId={selectedChainId}
+                onSelectChain={handleSelectChain}
+              />
+            </div>
+          </div>
+          <div
+            className={cn(
+              "flex items-end gap-2 rounded-2xl border bg-white p-2",
+              isTutor
+                ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20"
+                : "border-zinc-200"
             )}
+          >
+            <textarea
+              ref={chatInputRef}
+              value={draft}
+              onFocus={enterTutor}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={bottomPlaceholder}
+              rows={1}
+              disabled={isFetching}
+              className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
+            />
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={isFetching || !draft.trim()}
+              aria-label="Send to Tutor"
+              className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+            >
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
 
-      <div
-        className={`absolute bottom-0 left-0 right-0 backdrop-blur-sm px-2 md:px-10 pb-2 pt-2 z-50 transition-all duration-500 ${
-          isChatSidebarOpen ? "lg:right-[300px]" : ""
-        }`}
-        style={{
-          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))",
-        }}
-      >
-        <div className="w-full max-w-5xl mx-auto">
-          <ChatInput className="w-full" />
+      <TopicChangeDialog
+        open={topicDialogOpen}
+        onOpenChange={setTopicDialogOpen}
+        onStartNewSession={handleStartNewSession}
+        onContinueHere={handleContinueHere}
+        onDontAskAgainChange={handleDontAskAgainChange}
+      />
+    </div>
+  );
+}
+
+function ChatThreadView({
+  onNextQuestion,
+  showNext,
+}: {
+  onNextQuestion: () => void;
+  showNext: boolean;
+}) {
+  const entries = useExtractionQuizStore((s) => s.entries);
+  const isFetching = useExtractionQuizStore((s) => s.isFetching);
+  const experience = useExtractionQuizStore((s) => s.experience);
+  let attemptOrdinal = 0;
+
+  return (
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-2 pt-2 sm:px-4">
+      {entries.map((entry) => {
+        if (entry.kind === "user-prompt") {
+          return (
+            <div key={entry.id} className="flex justify-end mb-4">
+              <div className="max-w-[85%] rounded-2xl bg-[var(--primary)] px-4 py-2 text-sm text-white shadow-sm whitespace-pre-wrap">
+                {entry.content}
+              </div>
+            </div>
+          );
+        }
+        if (entry.kind === "system") {
+          return (
+            <div key={entry.id} className="flex justify-start mb-4">
+              <div className="max-w-[85%] rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-800">
+                {entry.content}
+              </div>
+            </div>
+          );
+        }
+
+        if (entry.kind === "assistant") {
+          return (
+            <div key={entry.id} className="flex justify-start mb-4">
+              <div className="max-w-[85%] rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 shadow-sm whitespace-pre-wrap">
+                {entry.content}
+              </div>
+            </div>
+          );
+        }
+
+        attemptOrdinal += 1;
+        const questionNumber = attemptOrdinal;
+        return (
+          <div key={entry.id} className="flex justify-start mb-4">
+            <div className="w-full max-w-[95%]">
+              <ExtractionQuestionCard
+                attempt={entry.attempt}
+                questionNumber={questionNumber}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      {isFetching && (
+        <div className="flex justify-start mb-4">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-500">
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
+            {experience === "tutor"
+              ? "Tutor is thinking..."
+              : "Preparing question..."}
+          </div>
         </div>
-      </div>
+      )}
+
+      {showNext && !isFetching && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNextQuestion}
+            className="rounded-full border-[var(--primary)]/30 text-[var(--primary)] hover:bg-[var(--primary)]/5"
+          >
+            Next question
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,12 +25,12 @@ export function ChatSidebarProvider({
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // In xl screens (1280px+): open sidebar by default on /dashboard route
+    // In xl screens (1280px+): open sidebar by default on /chat route
     // In smaller screens: keep sidebar closed by default
     if (!isLgScreen) {
       setIsChatSidebarOpen(false);
     } else {
-      setIsChatSidebarOpen(pathname === "/dashboard");
+      setIsChatSidebarOpen(pathname === "/chat");
     }
   }, [pathname, isLgScreen]);
 

@@ -34,7 +34,7 @@ export function ShineBorder({
   return (
     <div
       className={cn(
-        "relative min-h-[60px] w-fit min-w-[300px] place-items-center rounded-[--border-radius] p-1 bg-background border",
+        "relative min-h-[60px] w-full max-w-full sm:w-fit sm:min-w-[300px] place-items-center rounded-[--border-radius] p-1 bg-background border",
         `rounded-[${borderWidth}px]`,
         className
       )}

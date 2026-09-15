@@ -36,7 +36,7 @@ const CallToAction = () => {
           <Button
             variant={"outline"}
             onClick={() => push("/auth/signup")}
-            className="w-full sm:w-fit px-12 py-6 rounded-xl"
+            className="w-full sm:w-fit px-6 py-4 sm:px-12 sm:py-6 rounded-xl"
           >
             Get Started
           </Button>

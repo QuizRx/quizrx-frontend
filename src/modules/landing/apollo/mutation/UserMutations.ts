@@ -18,12 +18,3 @@ export const CREATE_USER_WITH_GOOGLE_MUTATION: TypedDocumentNode<
     createUserWithGoogle(idToken: $idToken)
   }
 `;
-
-export const CREATE_USER_WITH_GOOGLE_INVITE_MUTATION: TypedDocumentNode<
-  { createUserWithGoogleInvite: string },
-  { idToken: string; inviteCode: string }
-> = gql`
-  mutation CreateUserWithGoogleInvite($idToken: String!, $inviteCode: String!) {
-    createUserWithGoogleInvite(idToken: $idToken, inviteCode: $inviteCode)
-  }
-`;

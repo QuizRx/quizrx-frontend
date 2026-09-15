@@ -324,7 +324,7 @@ export default function QuizAccordion({
           {/* Thought Chain Processed - Show completed events */}
           <Streaming forceShow={true} isReviewMode={true} />
           
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {/* Final Score */}
             <div className="relative p-4 sm:p-5 md:p-6 bg-white rounded-xl shadow-sm border flex flex-col justify-between min-h-[100px] sm:min-h-[110px] md:min-h-[120px]">
               <span className="text-xs sm:text-sm font-normal text-gray-800">

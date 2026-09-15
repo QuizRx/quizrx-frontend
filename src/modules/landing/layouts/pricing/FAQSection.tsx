@@ -58,7 +58,7 @@ export function FAQSection({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div>
-            <h2 className="text-4xl font-bold text-gray-900 mb-8">{title}</h2>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-8">{title}</h2>
           </div>
 
           <div className="space-y-4">
@@ -71,11 +71,11 @@ export function FAQSection({
                 }
               >
                 <CollapsibleTrigger className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 font-medium text-gray-900">
                       {item.question}
                     </span>
-                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 shrink-0 bg-blue-600 rounded-full flex items-center justify-center">
                       <Plus
                         className={`h-4 w-4 text-white transition-transform ${
                           openFaq === `faq-${index}` ? "rotate-45" : ""

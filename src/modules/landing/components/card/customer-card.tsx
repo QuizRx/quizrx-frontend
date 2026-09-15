@@ -12,7 +12,7 @@ const CustomerCard = ({
   detail: string;
 }) => {
   return (
-    <div className="flex flex-col gap-4 items-start p-6 rounded-lg bg-neutral-100 w-72 h-60 justify-between">
+    <div className="flex flex-col gap-4 items-start p-6 rounded-lg bg-neutral-100 w-full max-w-xs min-h-60 justify-between">
       <div className="p-3 rounded-md bg-primary">
         <Icon color="white" size={24} />
       </div>

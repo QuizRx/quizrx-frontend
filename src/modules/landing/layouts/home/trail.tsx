@@ -9,7 +9,7 @@ export default function FreeTrialSection() {
   return (
     <Background
       image="/background/trail.svg"
-      className="w-full py-16 px-4 h-96 flex flex-col items-center justify-center rounded-3xl"
+      className="w-full py-12 sm:py-16 px-4 min-h-[280px] sm:h-96 flex flex-col items-center justify-center rounded-3xl"
     >
       <motion.div
         initial="hidden"

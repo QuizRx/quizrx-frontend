@@ -61,11 +61,9 @@ export function ApolloWrapper({ children }: React.PropsWithChildren) {
 
             // Look for authentication errors (adjust based on your backend error format)
             if (
-              message.includes("token expired") ||
-              message.includes("auth/id-token-expired") ||
-              message.includes("jwt expired") ||
-              message.includes("Unauthorized") ||
-              message.includes("invalid token")
+              /token expired|auth\/id-token-expired|jwt expired|unauthorized|invalid token|invalid firebase id token|unauthenticated/i.test(
+                message
+              )
             ) {
               const retryAttempt =
                 Number(operation.getContext().authRetryAttempt) || 0;

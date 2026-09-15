@@ -160,7 +160,7 @@ export async function initializeDefaultData(): Promise<void> {
       { name: 'Home', href: '/', order: 1, isVisible: true },
       { name: 'About Us', href: '/about-us', order: 2, isVisible: true },
       { name: 'Pricing', href: '/pricing', order: 3, isVisible: true },
-      { name: 'Contact', href: '/contact', order: 4, isVisible: true },
+      { name: 'Feedback', href: '/feedback', order: 4, isVisible: true },
     ];
     
     for (const item of defaultNavItems) {

@@ -81,7 +81,7 @@ const PricingCard = (props: {
       open={isDialogOpen}
       onOpenChange={() => setIsDialogOpen(!isDialogOpen)}
     >
-      <Card className="rounded-xl w-72 shadow-xl">
+      <Card className="rounded-xl w-full max-w-sm mx-auto shadow-xl">
         {props.data.isPopular && (
           <div className="bg-gradient-to-r from-primary via-primary/70 to-primary text-background text-xs text-center py-2 rounded-t-xl">
             Most Popular Plan

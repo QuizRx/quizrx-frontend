@@ -14,11 +14,11 @@ function QuizCollection({
   collection
 }: QuizCollectionProps) {
   return <div>
-    <div className="bg-white font-semibold text-[20px] text-[#717278] px-[32px] py-[16px]">
+    <div className="bg-white font-semibold text-lg sm:text-[20px] text-[#717278] px-4 py-3 sm:px-[32px] sm:py-[16px]">
       {collection.title}
     </div>
 
-    <div className='grid sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-[25px]'>
+    <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 mt-4 sm:mt-[25px]'>
       {
         quizzes.map((quiz, quizIndex) => {
           return (<div
