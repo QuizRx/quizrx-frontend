@@ -12,6 +12,8 @@ type SuggestedPromptsPanelProps = {
   // prompt set. Defaults to the shared list.
   prompts?: readonly SuggestedPrompt[];
   title?: string;
+  // Compact chips for the post-setup learning screen.
+  compact?: boolean;
 };
 
 // Configurable vertical suggested-prompts panel (spec A-12). Labels are
@@ -23,7 +25,29 @@ export function SuggestedPromptsPanel({
   className,
   prompts = SUGGESTED_PROMPTS,
   title = "Suggested prompts",
+  compact = false,
 }: SuggestedPromptsPanelProps) {
+  if (compact) {
+    return (
+      <div className={cn("flex flex-wrap gap-2", className)}>
+        {prompts.map((prompt) => (
+          <button
+            key={prompt.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(prompt.intent)}
+            className={cn(
+              "rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary)]/5",
+              disabled && "cursor-not-allowed opacity-50"
+            )}
+          >
+            {prompt.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <aside
       className={cn(

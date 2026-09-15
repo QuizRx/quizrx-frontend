@@ -9,6 +9,8 @@ import { findChainById, TopicDropdown } from "@/modules/extraction-quiz";
 import { ExtractionQuestionCard } from "@/modules/extraction-quiz/components/extraction-question-card";
 import { ExperienceToggle } from "@/modules/extraction-quiz/components/experience-toggle";
 import { LearningStatusBar } from "@/modules/extraction-quiz/components/learning-status-bar";
+import { SuggestedPromptsPanel } from "@/modules/extraction-quiz/components/suggested-prompts-panel";
+import { TUTOR_SUGGESTED_PROMPTS } from "@/modules/extraction-quiz/data/suggested-prompts";
 import { TopicChangeDialog } from "@/modules/extraction-quiz/components/topic-change-dialog";
 import { useLearningAction } from "@/modules/extraction-quiz/hooks/use-learning-action";
 import { learningQuestionToExtractionData } from "@/modules/extraction-quiz/utils/learning-action";
@@ -279,7 +281,11 @@ export function ChatPageShell({
     await runPrompt(text);
   };
 
-  const showWelcomeChrome = showWelcomeWhenEmpty || !hasAnyEntries;
+  // Discovery UI until both a mode and a topic are chosen; then the question
+  // or Tutor conversation owns the screen.
+  const isSetupComplete = Boolean(experience && selectedChainId);
+  const showDiscovery =
+    !isSetupComplete && (showWelcomeWhenEmpty || !hasAnyEntries);
 
   return (
     <div className="relative flex flex-col overflow-hidden h-full">
@@ -308,32 +314,43 @@ export function ChatPageShell({
               "max(160px, calc(140px + env(safe-area-inset-bottom, 0px)))",
           }}
         >
-          <WelcomeHeader
-            selectedChainId={selectedChainId}
-            onSelectChain={handleSelectChain}
-            onPrompt={runPrompt}
-            onStartQuestion={() => runQuestionAction("start_question")}
-            onEnterTutor={() => chatInputRef.current?.focus()}
-            isBusy={isFetching}
-            compact={!showWelcomeChrome}
-          />
-
-          <div className="mx-auto w-full max-w-6xl px-4">
-            <LearningStatusBar
-              topicLabel={selectedLabel}
-              experience={experience}
-              lastQuestionExperience={lastQuestionExperience}
-              onReturnToQuestion={() => {
-                if (lastQuestionExperience) setExperience(lastQuestionExperience);
-              }}
-              onNextQuestion={() => runQuestionAction("next_question")}
+          {showDiscovery ? (
+            <WelcomeHeader
+              selectedChainId={selectedChainId}
+              onSelectChain={handleSelectChain}
+              onPrompt={runPrompt}
               onStartQuestion={() => runQuestionAction("start_question")}
-              canStart={canStart}
-              canNext={canNext}
+              onEnterTutor={() => chatInputRef.current?.focus()}
               isBusy={isFetching}
-              className="mb-4"
             />
-          </div>
+          ) : (
+            <div className="mx-auto w-full max-w-4xl px-4 pt-4">
+              <LearningStatusBar
+                topicLabel={selectedLabel}
+                experience={experience}
+                lastQuestionExperience={lastQuestionExperience}
+                onReturnToQuestion={() => {
+                  if (lastQuestionExperience)
+                    setExperience(lastQuestionExperience);
+                }}
+                onNextQuestion={() => runQuestionAction("next_question")}
+                onStartQuestion={() => runQuestionAction("start_question")}
+                canStart={canStart}
+                canNext={canNext}
+                isBusy={isFetching}
+                className="mb-4"
+              />
+              {isTutor && entries.length === 0 && !isFetching && (
+                <SuggestedPromptsPanel
+                  onSelect={runPrompt}
+                  disabled={isFetching}
+                  prompts={TUTOR_SUGGESTED_PROMPTS}
+                  compact
+                  className="mb-4"
+                />
+              )}
+            </div>
+          )}
 
           {(hasCurrentAttempts || (isTutor && entries.length > 0)) && (
             <ChatThreadView

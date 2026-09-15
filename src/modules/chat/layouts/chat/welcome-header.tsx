@@ -21,7 +21,6 @@ type WelcomeHeaderProps = {
   onStartQuestion: () => Promise<void> | void;
   onEnterTutor: () => void;
   isBusy?: boolean;
-  compact?: boolean;
 };
 
 const buildGreeting = (
@@ -51,7 +50,6 @@ export const WelcomeHeader = ({
   onStartQuestion,
   onEnterTutor,
   isBusy = false,
-  compact = false,
 }: WelcomeHeaderProps) => {
   const experience = useExtractionQuizStore((s) => s.experience);
   const setExperience = useExtractionQuizStore((s) => s.setExperience);
@@ -66,15 +64,13 @@ export const WelcomeHeader = ({
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 pt-6 md:pt-8">
-      <header className={cn("mb-4", compact && "mb-3")}>
+      <header className="mb-4">
         <span className="inline-flex items-center rounded-full bg-[var(--accent-amber,#E0B16A)]/30 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
           Calcium &amp; Bone
         </span>
-        {!compact && (
-          <h1 className="mt-3 text-3xl font-semibold text-[var(--primary)] md:text-4xl">
-            Questions That Make You Think.
-          </h1>
-        )}
+        <h1 className="mt-3 text-3xl font-semibold text-[var(--primary)] md:text-4xl">
+          Questions That Make You Think.
+        </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-600 md:text-base">
           {greeting}
         </p>
@@ -97,7 +93,7 @@ export const WelcomeHeader = ({
         />
       </div>
 
-      {isQuestionMode(experience) && !compact && (
+      {isQuestionMode(experience) && (
         <div className="mb-4">
           <button
             type="button"
