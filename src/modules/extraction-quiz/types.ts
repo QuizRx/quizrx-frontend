@@ -140,8 +140,9 @@ export type LearningActionTextPayload = {
 };
 
 // The `question_review` payload for a graded Practice Studio short answer
-// (Final Handoff §9). `evaluation` is the semantic grade; `ideal_answer` is the
-// anchor-grounded model answer revealed after submission.
+// (Final Handoff §9). `evaluation` is the semantic grade (correct / partial /
+// incorrect); `ideal_answer` is the concise answer written for this question,
+// not the source Knowledge Note.
 export type LearningActionReviewPayload = {
   question_id?: string;
   evaluation?: "correct" | "partial" | "incorrect";

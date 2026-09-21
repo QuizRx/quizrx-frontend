@@ -234,26 +234,26 @@ export function ExtractionQuestionCard({
               className={cn(
                 "rounded-xl border p-4",
                 attempt.review.evaluation === "correct" &&
-                  "border-emerald-200 bg-emerald-50",
+                  "border-emerald-300 bg-emerald-50",
                 attempt.review.evaluation === "partial" &&
-                  "border-amber-200 bg-amber-50",
+                  "border-orange-300 bg-orange-50",
                 attempt.review.evaluation === "incorrect" &&
-                  "border-rose-200 bg-rose-50"
+                  "border-rose-300 bg-rose-50"
               )}
             >
               <p
                 className={cn(
                   "mb-1 text-xs font-semibold uppercase tracking-wide",
-                  attempt.review.evaluation === "correct" && "text-emerald-700",
-                  attempt.review.evaluation === "partial" && "text-amber-700",
-                  attempt.review.evaluation === "incorrect" && "text-rose-700"
+                  attempt.review.evaluation === "correct" && "text-emerald-800",
+                  attempt.review.evaluation === "partial" && "text-orange-800",
+                  attempt.review.evaluation === "incorrect" && "text-rose-800"
                 )}
               >
                 {attempt.review.evaluation === "correct"
                   ? "Correct"
                   : attempt.review.evaluation === "partial"
                   ? "Partially correct"
-                  : "Not quite"}
+                  : "Incorrect"}
               </p>
               {attempt.review.feedback && (
                 <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
