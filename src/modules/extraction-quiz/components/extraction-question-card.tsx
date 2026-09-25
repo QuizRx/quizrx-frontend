@@ -253,7 +253,7 @@ export function ExtractionQuestionCard({
                   ? "Correct"
                   : attempt.review.evaluation === "partial"
                   ? "Partially correct"
-                  : "Not quite"}
+                  : "Incorrect"}
               </p>
               {attempt.review.feedback && (
                 <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
