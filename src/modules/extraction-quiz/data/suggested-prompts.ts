@@ -36,23 +36,23 @@ export const SUGGESTED_PROMPTS: readonly SuggestedPrompt[] = [
 export const TUTOR_SUGGESTED_PROMPTS: readonly SuggestedPrompt[] = [
   {
     id: "tutor-explain",
-    label: "Explain this topic simply",
+    label: "Explain simply",
     intent: "Explain this topic simply, as if you were teaching a student.",
   },
   {
     id: "tutor-compare",
-    label: "Compare two related conditions",
+    label: "Compare",
     intent:
       "Compare two related conditions in this topic and explain how to tell them apart.",
   },
   {
     id: "tutor-why",
-    label: "Why does this happen?",
+    label: "Why?",
     intent: "Walk me through the underlying mechanism — why does this happen?",
   },
   {
     id: "tutor-review",
-    label: "Review the key points",
+    label: "Review",
     intent:
       "Give me a concise review of the key points I should remember for this topic.",
   },

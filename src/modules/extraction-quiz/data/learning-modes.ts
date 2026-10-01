@@ -47,8 +47,8 @@ export const MODE_LABELS: Record<LearningExperience, string> = {
 };
 
 // Tutor is a conversation, not an action-driven question flow. Callers use this
-// to hide question affordances (Start / Next question) and treat the chat box
-// as the primary surface.
+// to hide question affordances (Start / Next question) and show the chat box
+// only while Tutor is the active learning experience.
 export type QuestionExperience = "reasoning" | "practice_studio";
 
 export const isConversationalMode = (

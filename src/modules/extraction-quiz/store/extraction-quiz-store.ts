@@ -417,6 +417,7 @@ export const useExtractionQuizStore = create<
           set({
             entries: [],
             modeEntries: emptyModeEntries(),
+            experience: null,
             lastQuestionExperience: null,
             selectedChainId: null,
             contextFloor: 0,

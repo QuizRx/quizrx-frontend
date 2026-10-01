@@ -133,10 +133,12 @@ export function ChatPageShell({
   const hasAnyEntries = allEntries.length > 0;
   const selectedLabel = findChainById(selectedChainId)?.label ?? null;
   const isTutor = isConversationalMode(experience);
+  const isLearning = Boolean(experience && selectedChainId);
   const hasCurrentAttempts = entries.some((e) => e.kind === "attempt");
   const canStart =
-    isQuestionMode(experience) && Boolean(selectedChainId) && !hasCurrentAttempts;
-  const canNext = isQuestionMode(experience) && hasCurrentAttempts;
+    isLearning && isQuestionMode(experience) && !hasCurrentAttempts;
+  const canNext = isLearning && isQuestionMode(experience) && hasCurrentAttempts;
+  const showTutorChips = isLearning && isTutor && entries.length === 0 && !isFetching;
   const bottomPlaceholder = selectedLabel
     ? `Ask your tutor about ${selectedLabel}...`
     : "Ask your tutor anything about Calcium & Bone...";
@@ -281,11 +283,9 @@ export function ChatPageShell({
     await runPrompt(text);
   };
 
-  // Discovery UI until both a mode and a topic are chosen; then the question
-  // or Tutor conversation owns the screen.
-  const isSetupComplete = Boolean(experience && selectedChainId);
-  const showDiscovery =
-    !isSetupComplete && (showWelcomeWhenEmpty || !hasAnyEntries);
+  // Discovery until both a mode and a topic are chosen. After that the
+  // selected experience occupies the page; bottom controls stay compact.
+  const showDiscovery = !isLearning && (showWelcomeWhenEmpty || !hasAnyEntries);
 
   return (
     <div className="relative flex flex-col overflow-hidden h-full">
@@ -293,12 +293,14 @@ export function ChatPageShell({
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0 bg-white/55"
       />
-      <img
-        aria-hidden
-        src="/chatBG.png"
-        alt=""
-        className="pointer-events-none absolute bottom-0 left-4 z-1 hidden h-auto w-[220px] max-w-[32vw] select-none object-contain opacity-90 sm:block sm:left-72 sm:w-[280px] md:w-[340px] lg:w-[400px]"
-      />
+      {showDiscovery && (
+        <img
+          aria-hidden
+          src="/chatBG.png"
+          alt=""
+          className="pointer-events-none absolute bottom-0 right-4 z-1 hidden h-auto w-[200px] max-w-[28vw] select-none object-contain opacity-40 sm:block md:w-[260px] lg:right-8 lg:w-[300px]"
+        />
+      )}
 
       <div
         className={cn(
@@ -310,17 +312,19 @@ export function ChatPageShell({
           ref={scrollContainerRef}
           className="flex-1 overflow-x-hidden overflow-y-auto px-2 pt-2 min-h-0 mt-12"
           style={{
-            paddingBottom:
-              "max(160px, calc(140px + env(safe-area-inset-bottom, 0px)))",
+            paddingBottom: showDiscovery
+              ? "max(24px, env(safe-area-inset-bottom, 0px))"
+              : isTutor
+                ? showTutorChips
+                  ? "max(208px, calc(188px + env(safe-area-inset-bottom, 0px)))"
+                  : "max(168px, calc(148px + env(safe-area-inset-bottom, 0px)))"
+                : "max(96px, calc(80px + env(safe-area-inset-bottom, 0px)))",
           }}
         >
           {showDiscovery ? (
             <WelcomeHeader
               selectedChainId={selectedChainId}
               onSelectChain={handleSelectChain}
-              onPrompt={runPrompt}
-              onStartQuestion={() => runQuestionAction("start_question")}
-              onEnterTutor={() => chatInputRef.current?.focus()}
               isBusy={isFetching}
             />
           ) : (
@@ -328,31 +332,36 @@ export function ChatPageShell({
               <LearningStatusBar
                 topicLabel={selectedLabel}
                 experience={experience}
-                lastQuestionExperience={lastQuestionExperience}
-                onReturnToQuestion={() => {
-                  if (lastQuestionExperience)
-                    setExperience(lastQuestionExperience);
-                }}
-                onNextQuestion={() => runQuestionAction("next_question")}
-                onStartQuestion={() => runQuestionAction("start_question")}
-                canStart={canStart}
-                canNext={canNext}
-                isBusy={isFetching}
-                className="mb-4"
+                className="mb-6"
               />
-              {isTutor && entries.length === 0 && !isFetching && (
-                <SuggestedPromptsPanel
-                  onSelect={runPrompt}
-                  disabled={isFetching}
-                  prompts={TUTOR_SUGGESTED_PROMPTS}
-                  compact
-                  className="mb-4"
-                />
+              {showTutorChips && (
+                <p className="mb-2 text-sm text-zinc-500">
+                  Ask your tutor anything{selectedLabel ? ` about ${selectedLabel}` : ""}.
+                </p>
+              )}
+              {canStart && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white/70 px-6 py-16 text-center">
+                  <p className="mb-4 max-w-md text-sm text-zinc-500">
+                    {experience === "practice_studio"
+                      ? `Start a short-answer question${selectedLabel ? ` on ${selectedLabel}` : ""}.`
+                      : `Start a curated clinical question${selectedLabel ? ` on ${selectedLabel}` : ""}.`}
+                  </p>
+                  <Button
+                    onClick={() => runQuestionAction("start_question")}
+                    disabled={isFetching}
+                    className="rounded-full bg-[var(--primary)] px-5 hover:bg-[var(--primary)]/90"
+                  >
+                    {experience === "practice_studio"
+                      ? "Start Practice"
+                      : "Start a question"}
+                  </Button>
+                </div>
               )}
             </div>
           )}
 
-          {(hasCurrentAttempts || (isTutor && entries.length > 0)) && (
+          {isLearning &&
+            (hasCurrentAttempts || (isTutor && (entries.length > 0 || isFetching))) && (
             <ChatThreadView
               onNextQuestion={() => runQuestionAction("next_question")}
               showNext={canNext}
@@ -362,70 +371,68 @@ export function ChatPageShell({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 pb-3 backdrop-blur-md transition-all duration-500",
-          isChatSidebarOpen ? "lg:pl-[316px]" : ""
-        )}
-        style={{
-          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
-        }}
-      >
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="flex items-center gap-2 text-xs text-zinc-500">
-              {isTutor
-                ? "Tutor — ask about what you just learned"
-                : "Tap the box to ask the Tutor. Your current question stays saved."}
-            </span>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+      {isLearning && (
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-200/70 bg-white/80 px-3 pt-3 backdrop-blur-md transition-all duration-500",
+            isChatSidebarOpen ? "lg:pl-[316px]" : ""
+          )}
+          style={{
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))",
+          }}
+        >
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+            {showTutorChips && (
+              <SuggestedPromptsPanel
+                onSelect={runPrompt}
+                disabled={isFetching}
+                prompts={TUTOR_SUGGESTED_PROMPTS}
+                compact
+              />
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <ExperienceToggle disabled={isFetching} />
               <TopicDropdown
                 selectedChainId={selectedChainId}
                 onSelectChain={handleSelectChain}
               />
             </div>
-          </div>
-          <div
-            className={cn(
-              "flex items-end gap-2 rounded-2xl border bg-white p-2",
-              isTutor
-                ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20"
-                : "border-zinc-200"
+            {isTutor && (
+              <div className="flex items-end gap-2 rounded-2xl border border-[var(--primary)] bg-white p-2 ring-2 ring-[var(--primary)]/15">
+                <textarea
+                  ref={chatInputRef}
+                  value={draft}
+                  onFocus={enterTutor}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={bottomPlaceholder}
+                  rows={1}
+                  disabled={isFetching}
+                  className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
+                />
+                <Button
+                  size="icon"
+                  onClick={handleSend}
+                  disabled={isFetching || !draft.trim()}
+                  aria-label="Send to Tutor"
+                  className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+                >
+                  {isFetching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             )}
-          >
-            <textarea
-              ref={chatInputRef}
-              value={draft}
-              onFocus={enterTutor}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder={bottomPlaceholder}
-              rows={1}
-              disabled={isFetching}
-              className="flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-zinc-400"
-            />
-            <Button
-              size="icon"
-              onClick={handleSend}
-              disabled={isFetching || !draft.trim()}
-              aria-label="Send to Tutor"
-              className="rounded-full bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-            >
-              {isFetching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowUp className="h-4 w-4" />
-              )}
-            </Button>
           </div>
         </div>
-      </div>
+      )}
 
       <TopicChangeDialog
         open={topicDialogOpen}
