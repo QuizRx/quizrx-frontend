@@ -17,8 +17,11 @@ const NETWORK_FALLBACK: LearningActionResponse = {
   error: "network_error",
 };
 
+const RETRY_DELAY_MS = 800;
+
 // Thin wrapper over the learning-action mutation. Always resolves to a typed
 // response so callers can `switch` on `responseType` without try/catch.
+// `retryOnError` retries once on a friendly_error (transient upstream blips).
 export function useLearningAction() {
   const [run] = useMutation<
     { learningAction: LearningActionResponse },
@@ -26,13 +29,24 @@ export function useLearningAction() {
   >(LEARNING_ACTION_MUTATION);
 
   return useCallback(
-    async (input: LearningActionInput): Promise<LearningActionResponse> => {
-      try {
-        const { data } = await run({ variables: { input } });
-        return data?.learningAction ?? NETWORK_FALLBACK;
-      } catch {
-        return NETWORK_FALLBACK;
+    async (
+      input: LearningActionInput,
+      options?: { retryOnError?: boolean }
+    ): Promise<LearningActionResponse> => {
+      const once = async () => {
+        try {
+          const { data } = await run({ variables: { input } });
+          return data?.learningAction ?? NETWORK_FALLBACK;
+        } catch {
+          return NETWORK_FALLBACK;
+        }
+      };
+      const response = await once();
+      if (!options?.retryOnError || response.responseType !== "friendly_error") {
+        return response;
       }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      return once();
     },
     [run]
   );

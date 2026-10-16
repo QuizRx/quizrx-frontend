@@ -32,6 +32,8 @@ export type ExtractionQuestion = {
   // Rendered in order after the learner submits; falls back to the flat
   // `part2_data.explanation` string when absent.
   explanationSections?: ExplanationSection[];
+  // Position in the fixed QuizRx Reasoning collection ("Question 7 of 30").
+  sequence?: { number: number; total: number };
 };
 
 export type ExtractionPart2Data = {
@@ -126,6 +128,9 @@ export type LearningActionQuestionPayload = {
   experience?: string;
   source?: string;
   format?: string;
+  // QuizRx Reasoning only: fixed position in the curated 1–30 sequence.
+  question_number?: number;
+  total_questions?: number;
   stem: string;
   options: LearningActionOption[];
   correct_label: string;

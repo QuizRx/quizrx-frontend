@@ -58,6 +58,10 @@ export function learningQuestionToExtractionData(
       sub_topic: undefined,
       format: payload.format === "short_answer" ? "short_answer" : "mcq",
       explanationSections: toExplanationSections(payload.explanation_sections),
+      sequence:
+        payload.question_number && payload.total_questions
+          ? { number: payload.question_number, total: payload.total_questions }
+          : undefined,
     },
     part2_data: {
       explanation: payload.explanation,

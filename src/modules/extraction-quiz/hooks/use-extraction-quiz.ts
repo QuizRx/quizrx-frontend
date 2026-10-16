@@ -254,7 +254,7 @@ export function useExtractionQuiz() {
           throw new Error("Question not found for this topic.");
         }
 
-        const attempt = appendAttempt(chainId, data);
+        const attempt = appendAttempt(chainId, data, "reasoning");
 
         if (advance) {
           advanceChainProgress(chainId);

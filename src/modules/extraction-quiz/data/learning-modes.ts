@@ -1,43 +1,36 @@
 import type { LearningExperience } from "../types";
 
-// The three learner-facing experiences (Final Handoff §7). Copy is fixed and
-// must match the approved wording. Practice Studio is explicitly labelled
-// short-answer so the format is clear before the learner begins; Tutor is a
-// conversational teaching mode rather than a question generator.
+// The three learner-facing experiences, in the order shown in the mode
+// switcher. Tutor is the starting page (QuizRx beta review, Oct 2026).
 export type LearningModeMeta = {
   value: LearningExperience;
   label: string;
+  // Used where the full label does not fit (narrow phones).
+  shortLabel: string;
   description: string;
-  badge?: string;
 };
 
-export const QUESTION_MODES: readonly LearningModeMeta[] = [
+export const LEARNING_MODES: readonly LearningModeMeta[] = [
   {
-    value: "reasoning",
-    label: "QuizRx Reasoning",
-    description:
-      "Work through curated clinical decisions and detailed explanations.",
+    value: "tutor",
+    label: "Tutor",
+    shortLabel: "Tutor",
+    description: "What would you like to understand about calcium and bone?",
   },
   {
     value: "practice_studio",
     label: "Practice Studio",
+    shortLabel: "Practice",
     description:
       "Reinforce essential knowledge with short-answer recall questions.",
-    badge: "Short-answer",
   },
-] as const;
-
-export const TUTOR_MODE: LearningModeMeta = {
-  value: "tutor",
-  label: "Tutor",
-  description:
-    "Ask questions, explain concepts, compare conditions, and explore the selected topic.",
-  badge: "Conversational",
-};
-
-export const LEARNING_MODES: readonly LearningModeMeta[] = [
-  ...QUESTION_MODES,
-  TUTOR_MODE,
+  {
+    value: "reasoning",
+    label: "QuizRx Reasoning",
+    shortLabel: "Reasoning",
+    description:
+      "30 curated clinical questions. Work through them at your own pace.",
+  },
 ] as const;
 
 export const MODE_LABELS: Record<LearningExperience, string> = {
@@ -46,9 +39,9 @@ export const MODE_LABELS: Record<LearningExperience, string> = {
   tutor: "Tutor",
 };
 
-// Tutor is a conversation, not an action-driven question flow. Callers use this
-// to hide question affordances (Start / Next question) and show the chat box
-// only while Tutor is the active learning experience.
+export const getModeMeta = (mode: LearningExperience): LearningModeMeta =>
+  LEARNING_MODES.find((m) => m.value === mode) ?? LEARNING_MODES[0];
+
 export type QuestionExperience = "reasoning" | "practice_studio";
 
 export const isConversationalMode = (

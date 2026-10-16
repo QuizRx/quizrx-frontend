@@ -17,6 +17,26 @@ import {
   useExtractionQuizStore,
 } from "@/modules/extraction-quiz";
 
+type AttemptEntry = Extract<ExtractionEntry, { kind: "attempt" }>;
+
+const attemptStatus = (
+  attempt: AttemptEntry["attempt"]
+): { label: string; tone: "neutral" | "good" | "partial" | "bad" } => {
+  if (attempt.question.question.format === "short_answer") {
+    const evaluation = attempt.review?.evaluation;
+    if (evaluation === "correct") return { label: "Correct", tone: "good" };
+    if (evaluation === "partial") return { label: "Partially correct", tone: "partial" };
+    if (evaluation === "incorrect") return { label: "Incorrect", tone: "bad" };
+    return attempt.freeText.trim()
+      ? { label: "Answered", tone: "neutral" }
+      : { label: "Unanswered", tone: "neutral" };
+  }
+  if (attempt.selectedIndex === null) return { label: "Unanswered", tone: "neutral" };
+  return attempt.isCorrect
+    ? { label: "Correct", tone: "good" }
+    : { label: "Incorrect", tone: "bad" };
+};
+
 const deriveSessionTitle = (
   chainId: string | null,
   entries: ExtractionEntry[]
@@ -53,7 +73,6 @@ export function ChatHistorySidebar() {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
-  const entries = useExtractionQuizStore((s) => s.entries);
   const modeEntries = useExtractionQuizStore((s) => s.modeEntries);
   const experience = useExtractionQuizStore((s) => s.experience);
   const lastQuestionExperience = useExtractionQuizStore(
@@ -63,7 +82,27 @@ export function ChatHistorySidebar() {
   const selectedChainId = useExtractionQuizStore((s) => s.selectedChainId);
   const resetSession = useExtractionQuizStore((s) => s.resetSession);
   const loadSession = useExtractionQuizStore((s) => s.loadSession);
-  const allEntries = flattenModeEntries(modeEntries);
+
+  // QuizRx Reasoning progress belongs to the learner, not to a session, so it
+  // is never archived with (or replaced by) a session.
+  const sessionModes = useMemo(
+    () => ({ ...modeEntries, reasoning: [] }),
+    [modeEntries]
+  );
+  const sessionEntries = useMemo(
+    () => flattenModeEntries(sessionModes),
+    [sessionModes]
+  );
+  const reasoningAnswered = useMemo(
+    () =>
+      modeEntries.reasoning.filter(
+        (e) =>
+          e.kind === "attempt" &&
+          e.attempt.question.question.sequence &&
+          e.attempt.selectedIndex !== null
+      ).length,
+    [modeEntries.reasoning]
+  );
 
   const archivedSessions = useArchivedSessionsStore((s) => s.sessions);
   const archiveSession = useArchivedSessionsStore((s) => s.archive);
@@ -71,24 +110,21 @@ export function ChatHistorySidebar() {
 
   const recentAttempts = useMemo(
     () =>
-      allEntries
-        .filter(
-          (e): e is Extract<ExtractionEntry, { kind: "attempt" }> =>
-            e.kind === "attempt"
-        )
+      sessionEntries
+        .filter((e): e is AttemptEntry => e.kind === "attempt")
         .slice()
         .reverse(),
-    [allEntries]
+    [sessionEntries]
   );
 
   const archiveCurrentIfNeeded = () => {
-    if (allEntries.length === 0) return;
+    if (sessionEntries.length === 0) return;
     archiveSession({
       sessionId,
       chainId: selectedChainId,
-      title: deriveSessionTitle(selectedChainId, allEntries),
-      entries: allEntries,
-      modeEntries,
+      title: deriveSessionTitle(selectedChainId, sessionEntries),
+      entries: sessionEntries,
+      modeEntries: sessionModes,
       experience,
       lastQuestionExperience,
     });
@@ -183,24 +219,29 @@ export function ChatHistorySidebar() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+                {reasoningAnswered > 0 && (
+                  <section>
+                    <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                      QuizRx Reasoning
+                    </p>
+                    <p className="rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-3 py-2 text-xs text-zinc-700">
+                      {reasoningAnswered} of 30 questions answered
+                    </p>
+                  </section>
+                )}
                 <section>
                   <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                     Current session
                   </p>
                   {recentAttempts.length === 0 ? (
                     <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                      No questions yet. Choose Reasoning or Practice Studio to begin.
+                      No Practice Studio questions yet.
                     </p>
                   ) : (
                     <ul className="space-y-2">
                       {recentAttempts.map((entry) => {
                         const chain = findChainById(entry.attempt.chainId);
-                        const status =
-                          entry.attempt.selectedIndex === null
-                            ? "Unanswered"
-                            : entry.attempt.isCorrect
-                            ? "Correct"
-                            : "Incorrect";
+                        const status = attemptStatus(entry.attempt);
                         return (
                           <li
                             key={entry.id}
@@ -222,14 +263,13 @@ export function ChatHistorySidebar() {
                               <span
                                 className={cn(
                                   "rounded-full px-2 py-0.5",
-                                  entry.attempt.selectedIndex === null
-                                    ? "bg-zinc-100 text-zinc-500"
-                                    : entry.attempt.isCorrect
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-rose-50 text-rose-700"
+                                  status.tone === "neutral" && "bg-zinc-100 text-zinc-500",
+                                  status.tone === "good" && "bg-emerald-50 text-emerald-700",
+                                  status.tone === "partial" && "bg-amber-50 text-amber-700",
+                                  status.tone === "bad" && "bg-rose-50 text-rose-700"
                                 )}
                               >
-                                {status}
+                                {status.label}
                               </span>
                             </div>
                           </li>
@@ -275,8 +315,10 @@ export function ChatHistorySidebar() {
                                 </button>
                               </div>
                               <p className="mt-1 text-[10px] text-zinc-400">
-                                {archived.attemptCount} question
-                                {archived.attemptCount === 1 ? "" : "s"} ·{" "}
+                                {archived.attemptCount > 0
+                                  ? `${archived.attemptCount} question${archived.attemptCount === 1 ? "" : "s"}`
+                                  : "Tutor conversation"}{" "}
+                                ·{" "}
                                 {formatDistanceToNow(
                                   new Date(archived.archivedAt),
                                   { addSuffix: true }

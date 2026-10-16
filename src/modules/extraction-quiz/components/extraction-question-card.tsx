@@ -13,6 +13,7 @@ import { useExtractionQuiz } from "../hooks/use-extraction-quiz";
 import { useLearningAction } from "../hooks/use-learning-action";
 import type { ReportReason } from "../data/report-reasons";
 import type { LearningActionReviewPayload, QuestionFeedbackInput } from "../types";
+import { MarkdownText } from "./markdown-text";
 import { ReportQuestionDialog } from "./report-question-dialog";
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E"] as const;
@@ -184,17 +185,18 @@ export function ExtractionQuestionCard({
     question.sub_topic ??
     findChainById(attempt.chainId)?.label ??
     "Practice question";
-  const headerLabel =
-    questionNumber != null
+  const headerLabel = question.sequence
+    ? `Question ${question.sequence.number} of ${question.sequence.total}`
+    : questionNumber != null
       ? `Practice question ${questionNumber}`
       : topicLabel;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="mb-4 text-sm font-medium text-zinc-500">{headerLabel}</p>
-      <h3 className="mb-4 text-base font-medium text-zinc-900 leading-relaxed">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+      <p className="mb-3 text-sm font-medium text-[var(--primary)]/80">{headerLabel}</p>
+      <MarkdownText className="mb-5 text-[15px] font-medium text-zinc-900">
         {question.question}
-      </h3>
+      </MarkdownText>
 
       {isShortAnswer ? (
         <div className="space-y-3">
@@ -236,7 +238,7 @@ export function ExtractionQuestionCard({
                 attempt.review.evaluation === "correct" &&
                   "border-emerald-300 bg-emerald-50",
                 attempt.review.evaluation === "partial" &&
-                  "border-orange-300 bg-orange-50",
+                  "border-amber-300 bg-amber-50",
                 attempt.review.evaluation === "incorrect" &&
                   "border-rose-300 bg-rose-50"
               )}
@@ -245,7 +247,7 @@ export function ExtractionQuestionCard({
                 className={cn(
                   "mb-1 text-xs font-semibold uppercase tracking-wide",
                   attempt.review.evaluation === "correct" && "text-emerald-800",
-                  attempt.review.evaluation === "partial" && "text-orange-800",
+                  attempt.review.evaluation === "partial" && "text-amber-800",
                   attempt.review.evaluation === "incorrect" && "text-rose-800"
                 )}
               >
@@ -256,18 +258,18 @@ export function ExtractionQuestionCard({
                   : "Incorrect"}
               </p>
               {attempt.review.feedback && (
-                <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
+                <MarkdownText className="text-sm text-zinc-700">
                   {attempt.review.feedback}
-                </p>
+                </MarkdownText>
               )}
               {attempt.review.idealAnswer && (
                 <div className="mt-3">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Ideal answer
                   </p>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-800">
+                  <MarkdownText className="text-sm text-zinc-800">
                     {attempt.review.idealAnswer}
-                  </p>
+                  </MarkdownText>
                 </div>
               )}
             </div>
@@ -336,9 +338,9 @@ export function ExtractionQuestionCard({
                 </p>
               )}
               {section.body && (
-                <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
+                <MarkdownText className="text-sm text-zinc-700">
                   {section.body}
-                </p>
+                </MarkdownText>
               )}
               {section.options && section.options.length > 0 && (
                 <div className="mt-2 space-y-3">
@@ -347,9 +349,9 @@ export function ExtractionQuestionCard({
                       <p className="text-sm font-semibold text-zinc-800">
                         Option {opt.option}
                       </p>
-                      <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
+                      <MarkdownText className="text-sm text-zinc-700">
                         {opt.text}
-                      </p>
+                      </MarkdownText>
                     </div>
                   ))}
                 </div>
@@ -364,9 +366,9 @@ export function ExtractionQuestionCard({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
               Why this is correct
             </p>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
+            <MarkdownText className="text-sm text-zinc-700">
               {explanation}
-            </p>
+            </MarkdownText>
           </div>
         )
       )}

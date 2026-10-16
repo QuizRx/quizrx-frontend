@@ -1,6 +1,5 @@
 export { CALCIUM_BONE_CHAINS, findChainById } from "./data/chains";
 export type { CalciumBoneChain } from "./data/chains";
-export { TopicDropdown } from "./components/topic-dropdown";
 export { ExtractionQuestionCard } from "./components/extraction-question-card";
 export { useExtractionQuiz } from "./hooks/use-extraction-quiz";
 export {

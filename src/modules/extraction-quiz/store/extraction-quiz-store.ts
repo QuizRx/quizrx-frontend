@@ -5,10 +5,7 @@ import {
   persist,
 } from "zustand/middleware";
 import type { ExtractionQuestionData, LearningExperience } from "../types";
-import {
-  isQuestionMode,
-  type QuestionExperience,
-} from "../data/learning-modes";
+import type { QuestionExperience } from "../data/learning-modes";
 
 // Server grade for a Practice Studio short answer (Final Handoff §9). Set after
 // the answer is submitted and graded; drives the review panel on the card.
@@ -20,6 +17,8 @@ export type ExtractionReview = {
 
 export type ExtractionAttempt = {
   id: string;
+  // Practice Studio: the topic the question was generated for.
+  // QuizRx Reasoning: the curated item's source topic (analytics only).
   chainId: string;
   question: ExtractionQuestionData;
   selectedIndex: number | null;
@@ -29,9 +28,8 @@ export type ExtractionAttempt = {
   // Present only for graded Practice Studio short answers.
   review?: ExtractionReview | null;
   createdAt: number;
-  // The question experience this attempt belongs to. Switching to Tutor must
-  // not lose this, and submit/grade must use this — not the currently viewed
-  // mode — so a chat-box focus cannot re-route an in-progress answer.
+  // The question experience this attempt belongs to. Submit/grade use this,
+  // never the mode currently on screen.
   experience?: QuestionExperience;
 };
 
@@ -61,6 +59,7 @@ export type ExtractionEntry =
     };
 
 export type ModeEntries = Record<LearningExperience, ExtractionEntry[]>;
+export type ModePending = Record<LearningExperience, boolean>;
 
 export type LoadSessionPayload = {
   sessionId: string;
@@ -72,38 +71,38 @@ export type LoadSessionPayload = {
 };
 
 interface ExtractionQuizState {
+  // The Practice Studio topic. Tutor and QuizRx Reasoning never use a topic.
   selectedChainId: string | null;
-  // Explicitly-selected learning mode (Final Handoff §6). `null` until the
-  // learner chooses — the app never silently guesses the experience.
-  experience: LearningExperience | null;
-  // Last question experience the learner used, so Tutor can offer "Return to
-  // Practice Studio / QuizRx Reasoning" without guessing.
+  // Mode on screen. Every visit starts in Tutor (QuizRx beta review).
+  experience: LearningExperience;
   lastQuestionExperience: QuestionExperience | null;
   // Per-experience threads. Switching modes never erases another experience's
-  // questions or conversation — Question 7 stays Question 7.
+  // conversation, topic session, or Reasoning position.
   modeEntries: ModeEntries;
   // View of the active experience's thread (kept in sync for existing callers).
   entries: ExtractionEntry[];
+  // Requests in flight per experience, so one mode never blocks another.
+  pending: ModePending;
   contextFloor: number;
   sessionId: string;
   isFetching: boolean;
   error: string | null;
-  // Per-chain pointer into the deterministic walk through that chain's
-  // pre-authored decision points. `chainProgress[chainId]` holds the
-  // 1-based DP index we should request NEXT for that chain. Defaults to 1
-  // when a chain has not been touched in this session.
+  // Per-chain pointer into the legacy deterministic DP walk.
   chainProgress: Record<string, number>;
 }
 
 interface ExtractionQuizActions {
   setSelectedChainId: (chainId: string | null) => void;
-  setExperience: (experience: LearningExperience | null) => void;
+  setExperience: (experience: LearningExperience) => void;
+  setPending: (experience: LearningExperience, value: boolean) => void;
+  // Tutor conversation turns.
   appendUserPrompt: (content: string) => void;
-  appendSystem: (content: string) => void;
   appendAssistant: (content: string) => void;
+  appendSystem: (content: string, experience?: LearningExperience) => void;
   appendAttempt: (
     chainId: string,
-    question: ExtractionQuestionData
+    question: ExtractionQuestionData,
+    experience: QuestionExperience
   ) => ExtractionAttempt;
   recordAnswer: (attemptId: string, selectedIndex: number) => void;
   recordFreeText: (attemptId: string, freeText: string) => void;
@@ -112,14 +111,11 @@ interface ExtractionQuizActions {
   setIsFetching: (value: boolean) => void;
   setError: (error: string | null) => void;
   resetSession: () => void;
+  // Clear QuizRx Reasoning progress so the learner can start again at Q1.
+  resetReasoning: () => void;
   loadSession: (payload: LoadSessionPayload) => void;
-  // Returns the 1-based DP index that should be requested NEXT for this
-  // chain. Defaults to 1 when nothing has been fetched yet.
   getNextDpIndex: (chainId: string) => number;
-  // Bump the per-chain DP pointer (called after a successful fetch).
   advanceChainProgress: (chainId: string) => void;
-  // Reset a single chain's pointer back to 1. Used when the user has
-  // walked off the end of the chain's DP list, so they can re-walk.
   resetChainProgress: (chainId: string) => void;
 }
 
@@ -131,8 +127,6 @@ const generateId = () => {
 };
 
 // Pull the trailing DP index from a dp_id like "CAL-BONE-01-DP-08" → 8.
-// Returns null if the dp_id doesn't match the expected pattern (e.g. the
-// cognitive service ever changes its format).
 const parseDpIndex = (dpId: string | undefined | null): number | null => {
   if (!dpId) return null;
   const match = dpId.match(/-DP-(\d+)$/i);
@@ -141,9 +135,6 @@ const parseDpIndex = (dpId: string | undefined | null): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-// When loading an archived session we want to resume the deterministic walk
-// where the user left off. We derive that from the dp_ids already shown:
-// `max(seen index) + 1` per chain.
 const deriveChainProgressFromEntries = (
   entries: ExtractionEntry[]
 ): Record<string, number> => {
@@ -161,8 +152,6 @@ const deriveChainProgressFromEntries = (
   return result;
 };
 
-// Public helper so callers (e.g. the fetch hook) can build dp_ids
-// consistently with whatever index they got from the store.
 export const buildDpId = (chainId: string, index: number): string =>
   `${chainId}-DP-${String(index).padStart(2, "0")}`;
 
@@ -170,6 +159,12 @@ export const emptyModeEntries = (): ModeEntries => ({
   reasoning: [],
   practice_studio: [],
   tutor: [],
+});
+
+const idlePending = (): ModePending => ({
+  reasoning: false,
+  practice_studio: false,
+  tutor: false,
 });
 
 export const flattenModeEntries = (modeEntries: ModeEntries): ExtractionEntry[] => [
@@ -195,25 +190,29 @@ export const splitEntriesByMode = (entries: ExtractionEntry[]): ModeEntries => {
   return next;
 };
 
-const bucketForAppend = (
-  state: ExtractionQuizState,
-  kind: ExtractionEntry["kind"]
-): LearningExperience => {
-  if (kind === "attempt") {
-    return isQuestionMode(state.experience) ? state.experience : "reasoning";
-  }
-  // Chat turns always belong to Tutor. A system error during Start/Next stays
-  // on the current question experience so it remains visible there.
-  if (kind === "system" && isQuestionMode(state.experience)) {
-    return state.experience;
-  }
-  return "tutor";
-};
+// Reasoning attempts from before the fixed 1–30 sequence have no position and
+// cannot be resumed; only sequenced attempts count as progress.
+const sequencedReasoning = (entries: ExtractionEntry[] = []): ExtractionEntry[] =>
+  entries.filter(
+    (e) => e.kind === "attempt" && Boolean(e.attempt.question.question.sequence)
+  );
 
 const syncEntries = (
   modeEntries: ModeEntries,
-  experience: LearningExperience | null
-): ExtractionEntry[] => (experience ? modeEntries[experience] : []);
+  experience: LearningExperience
+): ExtractionEntry[] => modeEntries[experience];
+
+const appendTo = (
+  state: ExtractionQuizState,
+  experience: LearningExperience,
+  entry: ExtractionEntry
+): Pick<ExtractionQuizState, "modeEntries" | "entries"> => {
+  const modeEntries = {
+    ...state.modeEntries,
+    [experience]: [...state.modeEntries[experience], entry],
+  };
+  return { modeEntries, entries: syncEntries(modeEntries, state.experience) };
+};
 
 const patchAttempt = (
   state: ExtractionQuizState,
@@ -244,28 +243,29 @@ export const useExtractionQuizStore = create<
     persist(
       (set, get) => ({
         selectedChainId: null,
-        experience: null,
+        experience: "tutor",
         lastQuestionExperience: null,
         modeEntries: emptyModeEntries(),
+        entries: [],
+        pending: idlePending(),
         contextFloor: 0,
         sessionId: generateId(),
-        entries: [],
         isFetching: false,
         error: null,
         chainProgress: {},
 
         setSelectedChainId: (chainId) => set({ selectedChainId: chainId }),
 
-        // Switching mode only changes the visible thread. Other experiences
-        // keep their questions, answers, and Tutor conversation intact.
+        // Switching mode only changes the visible thread.
         setExperience: (experience) =>
           set((state) => {
-            if (experience === state.experience) return { experience };
-            const lastQuestionExperience = isQuestionMode(experience)
-              ? experience
-              : isQuestionMode(state.experience)
-                ? state.experience
-                : state.lastQuestionExperience;
+            if (experience === state.experience) return {};
+            const lastQuestionExperience =
+              experience === "tutor"
+                ? state.experience === "tutor"
+                  ? state.lastQuestionExperience
+                  : state.experience
+                : experience;
             return {
               experience,
               lastQuestionExperience,
@@ -274,70 +274,42 @@ export const useExtractionQuizStore = create<
             };
           }),
 
+        setPending: (experience, value) =>
+          set((state) => ({
+            pending: { ...state.pending, [experience]: value },
+          })),
+
         appendUserPrompt: (content) =>
-          set((state) => {
-            const entry: ExtractionEntry = {
+          set((state) =>
+            appendTo(state, "tutor", {
               id: generateId(),
               kind: "user-prompt",
               content,
               createdAt: Date.now(),
-            };
-            const bucket = bucketForAppend(state, "user-prompt");
-            const modeEntries = {
-              ...state.modeEntries,
-              [bucket]: [...state.modeEntries[bucket], entry],
-            };
-            return {
-              modeEntries,
-              entries: syncEntries(modeEntries, state.experience),
-            };
-          }),
-
-        appendSystem: (content) =>
-          set((state) => {
-            const entry: ExtractionEntry = {
-              id: generateId(),
-              kind: "system",
-              content,
-              createdAt: Date.now(),
-            };
-            const bucket = bucketForAppend(state, "system");
-            const modeEntries = {
-              ...state.modeEntries,
-              [bucket]: [...state.modeEntries[bucket], entry],
-            };
-            return {
-              modeEntries,
-              entries: syncEntries(modeEntries, state.experience),
-            };
-          }),
+            })
+          ),
 
         appendAssistant: (content) =>
-          set((state) => {
-            const entry: ExtractionEntry = {
+          set((state) =>
+            appendTo(state, "tutor", {
               id: generateId(),
               kind: "assistant",
               content,
               createdAt: Date.now(),
-            };
-            const bucket = bucketForAppend(state, "assistant");
-            const modeEntries = {
-              ...state.modeEntries,
-              [bucket]: [...state.modeEntries[bucket], entry],
-            };
-            return {
-              modeEntries,
-              entries: syncEntries(modeEntries, state.experience),
-            };
-          }),
+            })
+          ),
 
-        appendAttempt: (chainId, question) => {
-          const current = get().experience;
-          const experience: QuestionExperience = isQuestionMode(current)
-            ? current
-            : question.question.format === "short_answer"
-              ? "practice_studio"
-              : "reasoning";
+        appendSystem: (content, experience = "tutor") =>
+          set((state) =>
+            appendTo(state, experience, {
+              id: generateId(),
+              kind: "system",
+              content,
+              createdAt: Date.now(),
+            })
+          ),
+
+        appendAttempt: (chainId, question, experience) => {
           const attempt: ExtractionAttempt = {
             id: generateId(),
             chainId,
@@ -349,37 +321,29 @@ export const useExtractionQuizStore = create<
             createdAt: Date.now(),
             experience,
           };
-
-          set((state) => {
-            const entry: ExtractionEntry = {
+          set((state) => ({
+            ...appendTo(state, experience, {
               id: attempt.id,
               kind: "attempt",
               attempt,
-            };
-            const modeEntries = {
-              ...state.modeEntries,
-              [experience]: [...state.modeEntries[experience], entry],
-            };
-            return {
-              modeEntries,
-              lastQuestionExperience: experience,
-              entries: syncEntries(modeEntries, state.experience),
-            };
-          });
-
+            }),
+            lastQuestionExperience: experience,
+          }));
           return attempt;
         },
 
         recordAnswer: (attemptId, selectedIndex) =>
-          set((state) => patchAttempt(state, attemptId, (attempt) => {
-            const choices = attempt.question.question.choices;
-            const correctText = attempt.question.question.answer;
-            return {
-              ...attempt,
-              selectedIndex,
-              isCorrect: choices[selectedIndex] === correctText,
-            };
-          })),
+          set((state) =>
+            patchAttempt(state, attemptId, (attempt) => {
+              const choices = attempt.question.question.choices;
+              const correctText = attempt.question.question.answer;
+              return {
+                ...attempt,
+                selectedIndex,
+                isCorrect: choices[selectedIndex] === correctText,
+              };
+            })
+          ),
 
         recordFreeText: (attemptId, freeText) =>
           set((state) =>
@@ -408,33 +372,54 @@ export const useExtractionQuizStore = create<
         setIsFetching: (value) => set({ isFetching: value }),
         setError: (error) => set({ error }),
 
-        // Note: this clears the current session AND mints a new sessionId.
-        // It does NOT archive the previous session by itself — the caller
-        // (e.g. the sidebar "New session" button) is responsible for
-        // pushing a snapshot into useArchivedSessionsStore before calling
-        // this if it wants the session preserved.
+        // Starts a fresh Tutor conversation and Practice Studio session with a
+        // new sessionId. QuizRx Reasoning progress belongs to the learner, not
+        // the session, so it is kept. Archiving is the caller's job.
         resetSession: () =>
-          set({
-            entries: [],
-            modeEntries: emptyModeEntries(),
-            experience: null,
-            lastQuestionExperience: null,
-            selectedChainId: null,
-            contextFloor: 0,
-            sessionId: generateId(),
-            isFetching: false,
-            error: null,
-            chainProgress: {},
+          set((state) => {
+            const modeEntries: ModeEntries = {
+              ...emptyModeEntries(),
+              reasoning: state.modeEntries.reasoning,
+            };
+            return {
+              modeEntries,
+              entries: syncEntries(modeEntries, "tutor"),
+              experience: "tutor",
+              lastQuestionExperience: null,
+              selectedChainId: null,
+              pending: idlePending(),
+              contextFloor: 0,
+              sessionId: generateId(),
+              isFetching: false,
+              error: null,
+              chainProgress: {},
+            };
           }),
 
-        // Replace the current session in-place with an archived session.
-        // Used when the user clicks a past session in the sidebar.
-        // chainProgress is reconstructed from the archived entries so the
-        // deterministic walk continues where the user left off.
+        resetReasoning: () =>
+          set((state) => {
+            const modeEntries = { ...state.modeEntries, reasoning: [] };
+            return {
+              modeEntries,
+              entries: syncEntries(modeEntries, state.experience),
+            };
+          }),
+
+        // Replace the current session with an archived one. Reasoning progress
+        // is the learner's, so the current position is kept.
         loadSession: (payload) => {
-          const modeEntries =
+          const archived =
             payload.modeEntries ?? splitEntriesByMode(payload.entries);
-          const experience = payload.experience ?? null;
+          const modeEntries: ModeEntries = {
+            tutor: archived.tutor,
+            practice_studio: archived.practice_studio,
+            reasoning: get().modeEntries.reasoning,
+          };
+          const experience: LearningExperience =
+            modeEntries.tutor.length === 0 &&
+            modeEntries.practice_studio.length > 0
+              ? "practice_studio"
+              : "tutor";
           set({
             sessionId: payload.sessionId,
             selectedChainId: payload.chainId,
@@ -442,6 +427,7 @@ export const useExtractionQuizStore = create<
             experience,
             lastQuestionExperience: payload.lastQuestionExperience ?? null,
             entries: syncEntries(modeEntries, experience),
+            pending: idlePending(),
             contextFloor: 0,
             isFetching: false,
             error: null,
@@ -469,25 +455,42 @@ export const useExtractionQuizStore = create<
       {
         name: "extraction-quiz-current",
         storage: createJSONStorage(() => localStorage),
-        version: 3,
-        // Don't persist transient UI state.
+        version: 4,
+        // The mode on screen and in-flight flags are not persisted: every
+        // visit opens in Tutor with nothing pending.
         partialize: (state) => ({
           selectedChainId: state.selectedChainId,
-          experience: state.experience,
           lastQuestionExperience: state.lastQuestionExperience,
           modeEntries: state.modeEntries,
           contextFloor: state.contextFloor,
           sessionId: state.sessionId,
-          entries: state.entries,
           chainProgress: state.chainProgress,
         }),
+        merge: (persisted, current) => {
+          const merged = {
+            ...current,
+            ...(persisted as Partial<ExtractionQuizState>),
+          };
+          const modeEntries: ModeEntries = {
+            ...emptyModeEntries(),
+            ...(merged.modeEntries ?? {}),
+          };
+          return {
+            ...merged,
+            modeEntries,
+            experience: "tutor",
+            entries: syncEntries(modeEntries, "tutor"),
+            pending: idlePending(),
+          };
+        },
         // v1 → v2: reconstruct chainProgress.
         // v2 → v3: split the single thread into per-experience threads.
+        // v3 → v4: Reasoning becomes one fixed 1–30 sequence; topic-based
+        //          Reasoning attempts are dropped.
         migrate: (persistedState, fromVersion) => {
           const prev = (persistedState ?? {}) as {
             entries?: ExtractionEntry[];
             chainProgress?: Record<string, number>;
-            experience?: LearningExperience | null;
             modeEntries?: ModeEntries;
             lastQuestionExperience?: QuestionExperience | null;
           };
@@ -501,13 +504,21 @@ export const useExtractionQuizStore = create<
             };
           }
           if (fromVersion < 3) {
-            const modeEntries =
-              prev.modeEntries ?? splitEntriesByMode(prev.entries ?? []);
             next = {
               ...next,
-              modeEntries,
+              modeEntries:
+                prev.modeEntries ?? splitEntriesByMode(prev.entries ?? []),
               lastQuestionExperience: prev.lastQuestionExperience ?? null,
-              entries: syncEntries(modeEntries, prev.experience ?? null),
+            };
+          }
+          if (fromVersion < 4) {
+            const modeEntries = next.modeEntries ?? emptyModeEntries();
+            next = {
+              ...next,
+              modeEntries: {
+                ...modeEntries,
+                reasoning: sequencedReasoning(modeEntries.reasoning),
+              },
             };
           }
           return next as unknown;
@@ -518,6 +529,11 @@ export const useExtractionQuizStore = create<
   )
 );
 
+const isAnsweredAttempt = (entry: ExtractionEntry): boolean =>
+  entry.kind === "attempt" &&
+  (entry.attempt.selectedIndex !== null ||
+    entry.attempt.freeText.trim().length > 0);
+
 export const useExtractionAttempts = () =>
   useExtractionQuizStore((s) =>
     s.entries.filter(
@@ -526,10 +542,8 @@ export const useExtractionAttempts = () =>
     )
   );
 
+// Answered questions across every experience (the default view is Tutor).
 export const useAnsweredCount = () =>
   useExtractionQuizStore(
-    (s) =>
-      s.entries.filter(
-        (e) => e.kind === "attempt" && e.attempt.selectedIndex !== null
-      ).length
+    (s) => flattenModeEntries(s.modeEntries).filter(isAnsweredAttempt).length
   );
