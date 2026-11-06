@@ -5,12 +5,10 @@ import { useAuth } from "@/core/providers/auth";
 /**
  * Closed-beta admin allowlist.
  *
- * NOTE: This is a CLIENT-SIDE gate only. Any authenticated user could bypass
- * the UI and call the underlying GraphQL queries directly, since the prod
- * backend currently has no role guard on `getAllUsers` / `getAllThreads`.
- * The hardened, server-trusted version (`isCurrentUserAdmin` + `AdminGuard`)
- * is already in `quizrx-backend-api/src/core/admin/` and just needs the
- * backend to be deployed for it to take effect.
+ * NOTE: This is a CLIENT-SIDE gate only for showing the admin nav.
+ * Server trust is `AdminGuard` + `NEST_ADMIN_EMAILS` on getAllUsers /
+ * getAllThreads / getAllFeedback (and admin* equivalents). Keep this
+ * allowlist in sync with that env for the UI to match API access.
  *
  * To add more admins for now, edit this array (case-insensitive match).
  */

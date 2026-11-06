@@ -22,7 +22,14 @@ type AttemptEntry = Extract<ExtractionEntry, { kind: "attempt" }>;
 const attemptStatus = (
   attempt: AttemptEntry["attempt"]
 ): { label: string; tone: "neutral" | "good" | "partial" | "bad" } => {
-  if (attempt.question.question.format === "short_answer") {
+  // Ramy Oct-12 §5: PS short answers must show saved C/P/I after refresh.
+  // Prefer review/freeText over format alone — older persisted rows may omit
+  // `format: short_answer` and were mis-labeled "Unanswered" despite grades.
+  const isShortAnswer =
+    attempt.question.question.format === "short_answer" ||
+    !!attempt.review ||
+    attempt.freeText.trim().length > 0;
+  if (isShortAnswer) {
     const evaluation = attempt.review?.evaluation;
     if (evaluation === "correct") return { label: "Correct", tone: "good" };
     if (evaluation === "partial") return { label: "Partially correct", tone: "partial" };

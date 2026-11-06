@@ -154,6 +154,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     deleteCookie("token", { path: "/" });
 
+    // Ramy Oct-12 §6: clear learner history caches so account B in the same
+    // browser never sees account A's Practice Studio / Tutor / Reasoning UI.
+    // Keys match zustand persist names in extraction-quiz stores.
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("extraction-quiz-current");
+        window.localStorage.removeItem("extraction-quiz-archive");
+      }
+    } catch {
+      // ignore quota / private-mode errors
+    }
+
     currentTokenRef.current = null;
 
     setAuthState({
