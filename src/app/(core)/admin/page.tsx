@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  BookOpen,
   MessageSquare,
   MessagesSquare,
   Users,
@@ -15,6 +16,7 @@ import {
 } from "@/core/components/ui/tabs";
 import { AdminChatsTable } from "@/modules/admin/components/admin-chats-table";
 import { AdminFeedbackTable } from "@/modules/admin/components/admin-feedback-table";
+import { AdminKnowledgeNotesTable } from "@/modules/admin/components/admin-knowledge-notes-table";
 import { AdminUsersTable } from "@/modules/admin/components/admin-users-table";
 
 export default function AdminPage() {
@@ -33,16 +35,20 @@ export default function AdminPage() {
             Admin panel
           </h1>
           <p className="text-sm text-zinc-500">
-            Manage users, browse chats, and review feedback.
+            Manage users, knowledge notes, chats, and feedback.
           </p>
         </div>
       </header>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full max-w-xl grid-cols-3">
+        <TabsList className="grid h-auto w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="users" className="gap-2 px-2">
             <Users className="h-4 w-4 shrink-0" />
             Users
+          </TabsTrigger>
+          <TabsTrigger value="knowledge-notes" className="gap-2 px-2">
+            <BookOpen className="h-4 w-4 shrink-0" />
+            Knowledge Notes
           </TabsTrigger>
           <TabsTrigger value="chats" className="gap-2 px-2">
             <MessageSquare className="h-4 w-4 shrink-0" />
@@ -56,6 +62,9 @@ export default function AdminPage() {
 
         <TabsContent value="users">
           <AdminUsersTable />
+        </TabsContent>
+        <TabsContent value="knowledge-notes">
+          <AdminKnowledgeNotesTable />
         </TabsContent>
         <TabsContent value="chats">
           <AdminChatsTable />

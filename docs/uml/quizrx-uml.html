@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>QuizRx Frontend - UML Documentation</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1f2430; }
+  .page { width: 277mm; height: 190mm; page-break-after: always; break-after: page; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page-head { flex: 0 0 auto; border-bottom: 2px solid #2f5bea; padding-bottom: 4px; margin-bottom: 6px; }
+  .page-head .section { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #2f5bea; font-weight: 600; }
+  .page-head h2 { margin: 2px 0 2px; font-size: 19px; }
+  .page-head p { margin: 0; font-size: 11px; color: #4a5263; line-height: 1.35; }
+  .diagram { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  .footer { position: absolute; bottom: 0; right: 0; font-size: 9px; color: #8a91a1; }
+  .cover { justify-content: center; align-items: flex-start; padding-left: 20mm; }
+  .cover h1 { font-size: 40px; margin: 0 0 8px; color: #2f5bea; }
+  .cover .sub { font-size: 18px; color: #4a5263; margin-bottom: 26px; }
+  .cover table { font-size: 12px; border-collapse: collapse; }
+  .cover td { padding: 3px 14px 3px 0; vertical-align: top; }
+  .cover td:first-child { color: #8a91a1; }
+  .toc h2 { font-size: 22px; margin: 0 0 10px; color: #2f5bea; }
+  .toc-list { columns: 2; column-gap: 18mm; font-size: 12.5px; line-height: 1.7; }
+  .toc-sec { break-after: avoid; color: #2f5bea; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin: 8px 0 2px; }
+  .toc-sec:first-child { margin-top: 0; }
+  .toc-item { padding-left: 8px; }
+  .toc .sec { color: #8a91a1; font-size: 10.5px; }
+  .notes { font-size: 12px; line-height: 1.5; color: #333; margin-top: 12px; }
+  .notes li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+const DIAGRAMS = [
+// ---------------------------------------------------------------------------
+{ section: "1. Architecture", title: "System Context", desc: "The QuizRx frontend is a Next.js 15 / React 19 app. Users authenticate with Firebase; every data call goes to the QuizRx backend over GraphQL with the Firebase ID token as a Bearer token. Client state lives in Zustand stores (partly persisted to localStorage) and React context.",
+code: `flowchart LR
+  L(["Learner / Visitor<br/>(web browser)"])
+  A(["Admin<br/>(allowlisted email)"])
+  subgraph FE["QuizRx Frontend - Next.js 15 App Router (Cloud Run :8080)"]
+    direction TB
+    MW["Edge middleware<br/>route allowlist + legacy redirects"]
+    UI["Pages and layouts<br/>landing, /auth/*, /chat, /admin"]
+    PR["Providers<br/>Auth, Apollo, User, Theme"]
+    ST["Client state<br/>Zustand stores"]
+    MW --> UI
+    UI <--> PR
+    UI <--> ST
+  end
+  FB["Firebase Authentication<br/>email+password, custom token,<br/>password reset, ID token refresh"]
+  API["QuizRx Backend API<br/>GraphQL at NEXT_PUBLIC_API_URL/graphql"]
+  BS[("Browser storage<br/>cookie 'token' (7 days)<br/>localStorage: sessions, archive,<br/>feedback-prompt state")]
+  L --> MW
+  A --> MW
+  PR -- "sign in / refresh ID token" --> FB
+  PR -- "GraphQL + Authorization: Bearer ID token" --> API
+  PR <--> BS
+  ST <--> BS
+  API -. "verifies Firebase ID token" .-> FB`},
+
+// ---------------------------------------------------------------------------
+{ section: "1. Architecture", title: "Use Case Diagram", desc: "Actors and the goals they can achieve in the currently routed application. An Admin is a Learner whose email is on the client-side admin allowlist.",
+code: `flowchart LR
+  V(["Visitor"])
+  LR(["Learner<br/>(authenticated)"])
+  AD(["Admin"])
+  AD -- "is a" --> LR
+  subgraph SYS["QuizRx Web Application"]
+    direction TB
+    subgraph PUB["Public pages"]
+      U1(["Browse home, About us,<br/>Privacy policy"])
+      U2(["Sign up"])
+      U3(["Log in"])
+      U4(["Reset forgotten password"])
+      U5(["Send feedback (public page)"])
+    end
+    subgraph LRN["Learning workspace (/chat)"]
+      U6(["Ask the Tutor"])
+      U7(["Practice Studio:<br/>short-answer recall on a topic"])
+      U8(["Receive graded review<br/>+ ideal answer"])
+      U9(["QuizRx Reasoning:<br/>30 curated clinical MCQs"])
+      U10(["Read structured explanation"])
+      U11(["Report a question"])
+      U12(["Start new session /<br/>reopen archived session"])
+      U13(["Rate the app<br/>(feedback prompt)"])
+      U14(["Log out"])
+    end
+    subgraph ADM["Admin panel (/admin)"]
+      U15(["Browse users"])
+      U16(["Browse chat threads<br/>and messages"])
+      U17(["Review user feedback"])
+    end
+  end
+  V --- U1 & U2 & U3 & U4 & U5
+  LR --- U6 & U7 & U9 & U11 & U12 & U13 & U14
+  AD --- U15 & U16 & U17
+  U7 -. "include" .-> U8
+  U9 -. "include" .-> U10`},
+
+// ---------------------------------------------------------------------------
+{ section: "1. Architecture", title: "Package / Component Diagram", desc: "Source layout under src/. Arrows show compile-time dependencies. Modules in the grey box are present in the codebase but are not reachable from any route that the middleware currently allows.",
+code: `flowchart TB
+  MWF["src/middleware.ts"]
+  subgraph APP["src/app - App Router"]
+    direction LR
+    RL["layout.tsx<br/>providers.tsx"]
+    LG["(landing)/(root)/*<br/>home, about-us, privacy-policy,<br/>feedback, auth/*"]
+    CR["(core)/layout.tsx<br/>auth guard"]
+    CH["(core)/chat/*"]
+    AP["(core)/admin/*"]
+  end
+  subgraph MOD["src/modules - active"]
+    direction LR
+    MCHAT["chat<br/>shell, mode views,<br/>history sidebar, navbar"]
+    MEQ["extraction-quiz<br/>stores, hooks, question card,<br/>learning-action API"]
+    MFB["feedback<br/>prompt + form"]
+    MADM["admin<br/>users, chats, feedback tables"]
+    MLAND["landing<br/>home sections, auth forms"]
+  end
+  subgraph CORE["src/core - shared"]
+    direction LR
+    CP["providers<br/>auth, apollo-wrapper, user,<br/>theme, notification-sidebar"]
+    CHK["hooks<br/>use-require-auth, use-toast, ..."]
+    CUI["components<br/>ui (Radix/shadcn), shared, table"]
+    CCF["configs/firebase, middleware/decode-jwt,<br/>types, utils, lib"]
+  end
+  subgraph INACT["src/modules - not routed (inactive / legacy)"]
+    direction LR
+    MCON["concepts<br/>pipeline canvas"]
+    MGR["graph<br/>collections, Neo4j, Pinecone"]
+    MAV["avatars<br/>HeyGen streaming"]
+    MCMS["cms<br/>pages, navigation"]
+    MSUB["subscription<br/>Stripe billing"]
+    MLEG["chat (legacy)<br/>SSE chat-store, quizzes,<br/>question bank, mock exams"]
+  end
+  RL --> CP
+  LG --> MLAND
+  CH --> MCHAT
+  CH --> MFB
+  AP --> MADM
+  MCHAT --> MEQ
+  MCHAT --> MADM
+  MADM --> MFB
+  MOD --> CORE
+  APP --> CORE
+  style INACT fill:#f1f2f4,stroke:#b8bcc6,color:#666`},
+
+// ---------------------------------------------------------------------------
+{ section: "1. Architecture", title: "Route Tree and Provider Composition", desc: "How the root layout composes global providers and which layouts, pages and top-level components render for each route.",
+code: `flowchart TD
+  ROOT["RootLayout<br/>app/layout.tsx"] --> P1["AuthProvider"]
+  P1 --> P2["ApolloWrapper"]
+  P2 --> P3["UserProvider"]
+  P3 --> P4["ThemeProvider"]
+  P4 --> P5["NotificationSidebarProvider<br/>+ Toaster, NotificationSideDrawer"]
+  P5 --> LAND["(landing)/(root)/layout<br/>Navbar + Footer"]
+  P5 --> CORE["(core)/layout<br/>redirect to / when not authenticated"]
+  LAND --> R1["/ home"]
+  LAND --> R2["/about-us"]
+  LAND --> R3["/privacy-policy"]
+  LAND --> R4["/feedback"]
+  LAND --> R5["/auth/login, /auth/signup,<br/>/auth/forgot-password, /auth/reset-password"]
+  CORE --> CHL["chat/layout<br/>ChatSidebarProvider, ChatNavHeader,<br/>ChatHistorySidebar, FeedbackPrompt"]
+  CHL --> CHP["/chat<br/>ChatPageShell"]
+  CHL --> CHI["/chat/[id]<br/>redirects to /chat"]
+  CHP --> MS["ModeSwitcher"]
+  CHP --> TV["TutorView"]
+  CHP --> PV["PracticeStudioView"]
+  CHP --> RV["ReasoningView"]
+  PV --> QC["ExtractionQuestionCard"]
+  RV --> QC
+  CORE --> ADL["admin/layout<br/>useIsAdmin gate, else /chat"]
+  ADL --> ADP["/admin<br/>AdminPage (tabs)"]
+  ADP --> T1["AdminUsersTable"]
+  ADP --> T2["AdminChatsTable"]
+  ADP --> T3["AdminFeedbackTable"]`},
+
+// ---------------------------------------------------------------------------
+{ section: "1. Architecture", title: "Activity Diagram - Edge Middleware Routing", desc: "Every page request passes through src/middleware.ts. Only an allowlist of routes is served; legacy URLs are permanently redirected.",
+code: `flowchart TD
+  S(["Incoming request"]) --> A{"path starts with /_next or /api/<br/>or contains a dot?"}
+  A -- yes --> N1(["Serve: NextResponse.next()"])
+  A -- no --> B{"legacy path?<br/>/dashboard, /pricing, /subscribe,<br/>/contact, /cookies-policy"}
+  B -- yes --> R1(["308 redirect to mapped target<br/>/chat, /, /, /feedback, /privacy-policy"])
+  B -- no --> C{"path is exactly / ?"}
+  C -- yes --> N2(["Serve"])
+  C -- no --> D{"matches allowed prefix?<br/>/auth/login, /auth/signup,<br/>/auth/forgot-password, /auth/reset-password,<br/>/chat, /admin, /about-us,<br/>/feedback, /privacy-policy"}
+  D -- yes --> N3(["Serve"])
+  D -- no --> R2(["308 redirect to /"])`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Authentication and Data Access (src/core)", desc: "AuthProvider owns the Firebase session and the 'token' cookie. ApolloWrapper builds the GraphQL client (errorLink, authLink, httpLink) and silently refreshes expired tokens once. UserProvider loads the current user and subscription.",
+code: `classDiagram
+  direction LR
+  class AuthProps {
+    <<interface>>
+    +token: string
+    +user: DecodedJwtTokenType
+    +isLoading: boolean
+    +isAuthenticated: boolean
+    +signIn(token, redirectPath)
+    +signOut(redirectPath)
+    +refreshToken() string
+  }
+  class AuthProvider {
+    <<context provider>>
+    -authState
+    -currentTokenRef
+    -refreshTimerRef
+    -TOKEN_REFRESH_INTERVAL: 50 min
+    -COOKIE_MAX_AGE: 7 days
+    +signIn(token, redirectPath)
+    +signOut(redirectPath)
+    +refreshToken() string
+    -handleAuthStateChange(firebaseUser)
+    -setupRefreshTimer()
+    -handleSignOut()
+  }
+  class DecodedJwtTokenType {
+    +user_id: string
+    +name: string
+    +email: string
+    +picture: string
+    +email_verified: boolean
+    +firebase: sign_in_provider, identities
+  }
+  class ApolloWrapper {
+    <<component>>
+    +client: ApolloClient
+    -errorLink: refresh token and retry once
+    -authLink: sets Authorization Bearer
+    -httpLink: API_URL/graphql
+    -cache: InMemoryCache
+    +refetchQueries(include)
+  }
+  class UserProvider {
+    <<context provider>>
+    +user: User
+    +userSubscription: UserSubscription
+    +loading: boolean
+    +error
+    +refetch()
+  }
+  class FirebaseAuth {
+    <<external SDK>>
+    +onAuthStateChanged()
+    +getIdToken(user, forceRefresh)
+    +signInWithEmailAndPassword()
+    +signInWithCustomToken()
+    +sendPasswordResetEmail()
+    +confirmPasswordReset()
+    +signOut()
+  }
+  class getTokenInfo {
+    <<function>>
+    +getTokenInfo(token) DecodedJwtTokenType
+  }
+  class useRequireAuth {
+    <<hook>>
+    +isAuthenticated: boolean
+    +isLoading: boolean
+  }
+  class useIsAdmin {
+    <<hook>>
+    -ADMIN_EMAILS: string[]
+    +isAdmin: boolean
+    +loading: boolean
+  }
+  class QuizRxGraphQLAPI {
+    <<external service>>
+    +user
+    +findUserSubscription
+    +learningAction()
+    +submitQuestionFeedback()
+    +submitFeedback()
+    +getAllUsers / getAllThreads
+  }
+  AuthProvider ..|> AuthProps
+  AuthProvider --> FirebaseAuth : listens, refreshes
+  AuthProvider --> getTokenInfo : decodes JWT
+  AuthProvider "1" --> "0..1" DecodedJwtTokenType : user
+  ApolloWrapper --> AuthProvider : token, refreshToken
+  ApolloWrapper --> QuizRxGraphQLAPI : HTTP POST
+  UserProvider --> ApolloWrapper : GET_USER, FindUserSubscription
+  UserProvider --> AuthProvider : user_id
+  useIsAdmin --> AuthProvider : user.email
+  useRequireAuth --> AuthProvider`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Domain Model (entities exchanged with the backend)", desc: "Entity types shared across modules. All persistent entities carry _id, createdAt and updatedAt (BaseEntityProps). Thread/Message/Quiz/QuestionBank belong to the legacy chat flow but are still read by the admin panel.",
+code: `classDiagram
+  direction LR
+  class BaseEntityProps {
+    <<abstract>>
+    +_id: string
+    +createdAt: Date
+    +updatedAt: Date
+  }
+  class User {
+    +firstName: string
+    +lastName: string
+    +email: string
+    +role: UserRole
+    +status: UserStatus
+    +stripeCustomerId: string
+  }
+  class UserSubscription {
+    +userId: string
+    +subscriptionId: string
+    +status: SubscriptionStatus
+    +cancelationInfo: date, reason
+    +availableUntil: Date
+  }
+  class Thread {
+    +title: string
+    +description: string
+    +userId: string
+  }
+  class Message {
+    +content: string
+    +senderType: SenderType
+    +threadId: string
+    +messageType: MessageType
+    +quizId: string
+    +dataSource: pinecone, pubmed, context
+  }
+  class Citation {
+    +text: string
+    +pmid: string
+    +url: string
+  }
+  class Question {
+    +question: string
+    +choices: string[]
+    +answer: string
+    +explanation: string or EnhancedExplanation
+    +level: string
+    +topic: string
+    +sub_topic: string
+    +isSaved: boolean
+    +userChoice: number
+    +timeSpent: number
+  }
+  class EnhancedExplanation {
+    +correct_answer: AnswerExplanation
+    +distractors: DistractorExplanation[]
+    +key_points: string[]
+  }
+  class Quiz {
+    +quizName: string
+    +score: number
+    +timeSpent: number
+    +totalQuestions: number
+  }
+  class QuizAnswer {
+    +questionId: string
+    +answer: string
+    +isCorrect: boolean
+  }
+  class QuestionBank {
+    +name: string
+    +description: string
+    +isPublic: boolean
+    +tags: string[]
+    +totalQuestions: number
+  }
+  class Topic {
+    +id: string
+    +title: string
+    +description: string
+  }
+  class Subtopic {
+    +id: string
+    +title: string
+  }
+  class Feedback {
+    +userId: string
+    +rating: number
+    +category: FeedbackCategory
+    +message: string
+    +pagePath: string
+    +userAgent: string
+  }
+  class SubscriptionStatus {
+    <<enumeration>>
+    ACTIVE
+    TRIALING
+    PAYMENT_PENDING
+    RETRYING_PAST_DUE
+    CANCELED
+    EXPIRED
+    SUSPENDED_UNPAID
+  }
+  class UserRole {
+    <<enumeration>>
+    OWNER
+    EDITOR
+    VIEWER
+  }
+  class UserStatus {
+    <<enumeration>>
+    ACTIVE
+    INACTIVE
+    INVITED
+  }
+  class SenderType {
+    <<enumeration>>
+    USER
+    AI
+  }
+  class MessageType {
+    <<enumeration>>
+    FORM_TOPIC
+    QUIZ
+    ANSWER
+    QUERY
+  }
+  class FeedbackCategory {
+    <<enumeration>>
+    GENERAL
+    BUG
+    FEATURE_REQUEST
+    UX
+    CONTENT
+  }
+  BaseEntityProps <|-- User
+  BaseEntityProps <|-- Thread
+  BaseEntityProps <|-- Message
+  BaseEntityProps <|-- Question
+  BaseEntityProps <|-- Quiz
+  BaseEntityProps <|-- QuestionBank
+  BaseEntityProps <|-- Feedback
+  User "1" --> "0..1" UserSubscription
+  User "1" --> "*" Thread
+  User "1" --> "*" Feedback
+  Thread "1" *-- "*" Message
+  Message "1" o-- "*" Question
+  Message "1" o-- "*" Citation
+  Message ..> Quiz : quizId
+  Quiz "1" *-- "*" QuizAnswer
+  QuizAnswer ..> Question : questionId
+  QuestionBank "1" o-- "*" Question
+  Question --> "0..1" EnhancedExplanation
+  Topic "1" *-- "*" Subtopic
+  User ..> UserRole
+  User ..> UserStatus
+  UserSubscription ..> SubscriptionStatus
+  Message ..> SenderType
+  Message ..> MessageType
+  Feedback ..> FeedbackCategory`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Learning Workspace - Session State (extraction-quiz stores)", desc: "The /chat page is driven by three Zustand stores. ExtractionQuizStore keeps one thread per learning experience (Tutor, Practice Studio, Reasoning) so switching modes never loses work. ArchivedSessionsStore keeps up to 50 past sessions. ChainPoolStore is an in-memory cache of authored questions per topic chain.",
+code: `classDiagram
+  direction LR
+  class ExtractionQuizStore {
+    <<Zustand store - persisted>>
+    +experience: LearningExperience
+    +selectedChainId: string
+    +modeEntries: ModeEntries
+    +entries: ExtractionEntry[]
+    +pending: ModePending
+    +sessionId: string
+    +lastQuestionExperience: QuestionExperience
+    +chainProgress: map chainId to index
+    +isFetching: boolean
+    +error: string
+    +setExperience(experience)
+    +setSelectedChainId(chainId)
+    +setPending(experience, value)
+    +appendUserPrompt(content)
+    +appendAssistant(content)
+    +appendSystem(content, experience)
+    +appendAttempt(chainId, question, experience) ExtractionAttempt
+    +recordAnswer(attemptId, selectedIndex)
+    +recordFreeText(attemptId, freeText)
+    +recordReview(attemptId, review)
+    +markFeedbackSubmitted(attemptId)
+    +resetSession()
+    +resetReasoning()
+    +loadSession(payload)
+  }
+  class ExtractionEntry {
+    <<union by kind>>
+    +id: string
+    +kind: user-prompt, attempt, system, assistant
+    +content: string
+    +createdAt: number
+  }
+  class ExtractionAttempt {
+    +id: string
+    +chainId: string
+    +selectedIndex: number
+    +isCorrect: boolean
+    +freeText: string
+    +feedbackSubmitted: boolean
+    +experience: QuestionExperience
+    +createdAt: number
+  }
+  class ExtractionReview {
+    +evaluation: correct, partial, incorrect
+    +feedback: string
+    +idealAnswer: string
+  }
+  class ExtractionQuestionData {
+    +concept_target: string
+    +part2_data: explanation, answer
+  }
+  class ExtractionQuestion {
+    +question: string
+    +choices: string[]
+    +answer: string
+    +option_trap_ids: string[]
+    +dp_id: string
+    +topic: string
+    +sub_topic: string
+    +format: mcq or short_answer
+    +sequence: number of total
+  }
+  class ExplanationSection {
+    +id: string
+    +heading: string
+    +body: string
+    +options: option, text
+  }
+  class ArchivedSessionsStore {
+    <<Zustand store - persisted>>
+    +sessions: ArchivedSession[]
+    -ARCHIVE_LIMIT: 50
+    +archive(snapshot)
+    +remove(sessionId)
+    +clear()
+  }
+  class ArchivedSession {
+    +sessionId: string
+    +title: string
+    +chainId: string
+    +modeEntries: ModeEntries
+    +experience: LearningExperience
+    +archivedAt: number
+    +attemptCount: number
+  }
+  class ChainPoolStore {
+    <<Zustand store - in memory>>
+    +pools: map chainId to questions
+    +loading: map chainId to boolean
+    +warmedAt: map chainId to time
+    +errors: map chainId to string
+    +startLoading(chainId)
+    +finishLoading(chainId, pool)
+    +failLoading(chainId, error)
+  }
+  class CalciumBoneChain {
+    <<static data - 9 topics>>
+    +chainId: string
+    +label: string
+  }
+  class LearningExperience {
+    <<enumeration>>
+    tutor
+    practice_studio
+    reasoning
+  }
+  ExtractionQuizStore "1" *-- "*" ExtractionEntry : one list per experience
+  ExtractionEntry "1" o-- "0..1" ExtractionAttempt : kind = attempt
+  ExtractionAttempt --> "1" ExtractionQuestionData
+  ExtractionAttempt --> "0..1" ExtractionReview
+  ExtractionQuestionData *-- "1" ExtractionQuestion
+  ExtractionQuestion *-- "*" ExplanationSection
+  ArchivedSessionsStore "1" *-- "0..50" ArchivedSession
+  ArchivedSession o-- "*" ExtractionEntry
+  ChainPoolStore o-- "*" ExtractionQuestionData
+  ExtractionAttempt ..> CalciumBoneChain : chainId
+  ExtractionQuizStore ..> LearningExperience`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Learning Workspace - Learning Action API and UI", desc: "All three modes talk to a single GraphQL mutation, learningAction. The UI sends an explicit action (start/next question, submit answer) and switches on responseType. Answer analytics and question reports go through submitQuestionFeedback.",
+code: `classDiagram
+  direction LR
+  class TutorView {
+    <<component>>
+    +send(text)
+  }
+  class PracticeStudioView {
+    <<component>>
+    +requestQuestion()
+  }
+  class ReasoningView {
+    <<component>>
+    +load(action, currentQuestionId)
+    +continueReasoning()
+  }
+  class ExtractionQuestionCard {
+    <<component>>
+    +handleSelect(index)
+    +handleShortSubmit()
+    +handleReportSubmit(reason, comment)
+  }
+  class useLearningAction {
+    <<hook>>
+    -RETRY_DELAY_MS: 800
+    +run(input, retryOnError) LearningActionResponse
+  }
+  class useExtractionQuiz {
+    <<hook>>
+    +submitFeedback(input, attemptId, options) boolean
+    +warmChain(chainId)
+    +fetchQuestion(chainId, options)
+  }
+  class LearningActionInput {
+    +message: string
+    +experience: LearningExperience
+    +topicId: string
+    +topicDisplayName: string
+    +sessionId: string
+    +action: LearningAction
+    +currentQuestionId: string
+    +learnerAnswer: string
+    +seenQuestionIds: string[]
+    +isFirstTurn: boolean
+    +history: LearningTurn[]
+  }
+  class LearningActionResponse {
+    +responseType: LearningResponseType
+    +payload: object
+    +statusCode: number
+    +message: string
+    +error: string
+  }
+  class LearningAction {
+    <<enumeration>>
+    start_question
+    next_question
+    submit_answer
+    explain
+    review
+  }
+  class LearningResponseType {
+    <<enumeration>>
+    small_talk
+    scope_redirect
+    explanation
+    question
+    question_review
+    clarification
+    friendly_error
+  }
+  class LearningActionQuestionPayload {
+    +question_id: string
+    +stem: string
+    +options: LearningActionOption[]
+    +correct_label: string
+    +explanation: string
+    +explanation_sections
+    +question_number: number
+    +total_questions: number
+    +topic_id: string
+  }
+  class LearningActionTextPayload {
+    +text: string
+    +question_id: string
+  }
+  class LearningActionReviewPayload {
+    +question_id: string
+    +evaluation: correct, partial, incorrect
+    +feedback: string
+    +ideal_answer: string
+  }
+  class LearningActionOption {
+    +label: string
+    +text: string
+  }
+  class LearningTurn {
+    +role: user or assistant
+    +content: string
+  }
+  class QuestionFeedbackInput {
+    +chainId: string
+    +dpId: string
+    +questionId: string
+    +isCorrect: boolean
+    +shownTrapIds: string[]
+    +selectedTrapId: string
+    +selectedOptionLabel: string
+    +selectedOptionText: string
+    +reportReason: string
+    +freeText: string
+    +sessionId: string
+    +experience: LearningExperience
+  }
+  TutorView --> useLearningAction
+  PracticeStudioView --> useLearningAction
+  ReasoningView --> useLearningAction
+  PracticeStudioView --> ExtractionQuestionCard : renders
+  ReasoningView --> ExtractionQuestionCard : renders
+  ExtractionQuestionCard --> useLearningAction : submit_answer
+  ExtractionQuestionCard --> useExtractionQuiz : submitFeedback
+  useLearningAction ..> LearningActionInput : learningAction mutation
+  useLearningAction ..> LearningActionResponse : returns
+  useExtractionQuiz ..> QuestionFeedbackInput : submitQuestionFeedback mutation
+  LearningActionInput --> LearningAction
+  LearningActionInput o-- "*" LearningTurn
+  LearningActionResponse --> LearningResponseType
+  LearningActionResponse --> LearningActionQuestionPayload : question
+  LearningActionResponse --> LearningActionTextPayload : text responses
+  LearningActionResponse --> LearningActionReviewPayload : question_review
+  LearningActionQuestionPayload *-- "*" LearningActionOption`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Admin Panel and Feedback", desc: "The admin panel is three read-only paginated tables. Access is gated client-side by useIsAdmin (email allowlist). The feedback prompt lives in the chat layout and decides when to appear from localStorage state.",
+code: `classDiagram
+  direction LR
+  class AdminLayout {
+    <<layout>>
+    gate: useAuth + useIsAdmin
+  }
+  class AdminPage {
+    <<page>>
+    tabs: users, chats, feedback
+  }
+  class AdminUsersTable {
+    <<component>>
+    query AdminGetAllUsers
+  }
+  class AdminChatsTable {
+    <<component>>
+    query AdminGetAllThreads
+    query AdminGetThreadMessages
+  }
+  class AdminFeedbackTable {
+    <<component>>
+    query AdminGetAllFeedback
+    fallback AdminGetMyFeedbackFallback
+  }
+  class PaginatedResponse~T~ {
+    +data: T[]
+    +meta: total, limit, page, lastPage
+  }
+  class AdminUser {
+    +_id: string
+    +email: string
+    +firstName: string
+    +lastName: string
+    +role: UserRole
+    +status: UserStatus
+  }
+  class AdminThreadRow {
+    +_id: string
+    +title: string
+    +userId: string
+    +userEmail: string
+    +userName: string
+    +messageCount: number
+  }
+  class AdminThreadMessage {
+    +_id: string
+    +content: string
+    +threadId: string
+    +senderType: USER or AI
+    +messageType: ANSWER, QUIZ, QUERY, FORM_TOPIC
+  }
+  class AdminFeedbackRow {
+    +_id: string
+    +userId: string
+    +userEmail: string
+    +rating: number
+    +category: FeedbackCategory
+    +message: string
+    +pagePath: string
+  }
+  class FeedbackPrompt {
+    <<component>>
+    +open: boolean
+    -evaluate() every poll interval
+  }
+  class FeedbackForm {
+    <<component>>
+    mutation SubmitFeedback
+  }
+  class PromptStorage {
+    <<localStorage utility>>
+    +shouldShowFeedbackPrompt() boolean
+  }
+  class SubmitFeedbackInput {
+    +rating: number
+    +category: FeedbackCategory
+    +message: string
+    +pagePath: string
+    +userAgent: string
+  }
+  AdminLayout --> AdminPage
+  AdminPage *-- AdminUsersTable
+  AdminPage *-- AdminChatsTable
+  AdminPage *-- AdminFeedbackTable
+  AdminUsersTable ..> AdminUser : PaginatedResponse
+  AdminChatsTable ..> AdminThreadRow : PaginatedResponse
+  AdminChatsTable ..> AdminThreadMessage : PaginatedResponse
+  AdminFeedbackTable ..> AdminFeedbackRow : PaginatedResponse
+  AdminThreadRow "1" --> "*" AdminThreadMessage
+  FeedbackPrompt --> PromptStorage
+  FeedbackPrompt --> FeedbackForm
+  FeedbackForm ..> SubmitFeedbackInput`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Legacy Chat Module (not rendered by the current /chat page)", desc: "Stores from the previous chat experience: SSE streaming chat with agent events, quizzes, question banks and an avatar overlay. They are still in src/modules/chat/store but the current ChatPageShell does not use them.",
+code: `classDiagram
+  direction TB
+  class ChatStore {
+    <<Zustand store>>
+    +messages: Message[]
+    +currentThread: Thread
+    +availableThreads: Thread[]
+    +isStreaming: boolean
+    +agentEvents: AgentEvent[]
+    +streamsById: map to StreamBucket
+    +streamOrder: string[]
+    +handleSubmit(message, token, onThreadCreated, topic)
+    +createThread(initialMessage, title, description)
+    +fetchAvailableThreads()
+    +loadThread(threadId) boolean
+    +callSSEConnection(args)
+    +SSEMultiConnection(args)
+    +startFormTopicStreaming(topics, token)
+    +resetChat()
+  }
+  class StreamBucket {
+    +streamId: string
+    +macroTitle: string
+    +subtopicTitle: string
+    +status: open, done, error
+    +events: AgentEvent[]
+  }
+  class AgentEvent {
+    <<union>>
+    +event: string
+    +timestamp: number
+    +stream_id: string
+    +thread_id: string
+  }
+  class LLMStreamingEvent {
+    +node: string
+    +content: string
+  }
+  class ToolCallingEvent {
+    +tool_name: string
+    +data: string
+  }
+  class FinalResponseData {
+    +message: Message
+  }
+  class RetryEvent {
+    +attempt: number
+    +next_retry_in_sec: number
+  }
+  class ErrorEvent {
+    +error: string
+  }
+  class StreamOpenedEvent
+  class BatchDoneEvent
+  class EndEvent
+  class QuestionStateStore {
+    <<Zustand store>>
+    +questions: Question[]
+    +currentQuestionIndex: number
+    +timeRemaining: number
+    +answers: Answer[]
+    +quizResult: QuizResult
+    +initializeQuiz(questions, totalTime)
+    +selectAnswer(answer, mutation)
+    +goToNextQuestion()
+    +saveQuestion(...)
+  }
+  class IndividualQuestionStore {
+    <<Zustand store>>
+    +question: Question
+    +timeRemaining: number
+    +selectedAnswer: string
+    +initializeQuestion(question, totalTime)
+    +selectAnswer(answer, mutation)
+  }
+  class QuestionStore {
+    <<Zustand store>>
+    +userQuestions: Question[]
+    +userSavedQuestions: Question[]
+    +userArchivedQuestions: Question[]
+    +loadUserQuestions(page)
+    +removeQuestion(questionId)
+  }
+  class AvatarStore {
+    <<Zustand store>>
+    +isAvatarVisible: boolean
+    +questionContext: QuestionContext
+    +talk(text, mode)
+    +getContextualPrompt() string
+  }
+  class SplitViewStore {
+    <<Zustand store>>
+    +isReviewMode: boolean
+    +leftWidth: number
+  }
+  class FilterStore {
+    <<Zustand store - persisted>>
+    +topic: string
+    +difficulty: string
+    +resetFilters()
+  }
+  AgentEvent <|-- LLMStreamingEvent
+  AgentEvent <|-- ToolCallingEvent
+  AgentEvent <|-- FinalResponseData
+  AgentEvent <|-- RetryEvent
+  AgentEvent <|-- ErrorEvent
+  AgentEvent <|-- StreamOpenedEvent
+  AgentEvent <|-- BatchDoneEvent
+  AgentEvent <|-- EndEvent
+  ChatStore "1" *-- "*" StreamBucket
+  StreamBucket "1" o-- "*" AgentEvent
+  ChatStore o-- "*" AgentEvent`},
+
+// ---------------------------------------------------------------------------
+{ section: "2. Class Diagrams", title: "Inactive Modules - Concepts, Graph, CMS, Avatars", desc: "Types from modules that are in the repository but not reachable from any allowed route (pipeline builder, knowledge-graph data configuration, CMS, HeyGen streaming avatar).",
+code: `classDiagram
+  direction LR
+  namespace concepts {
+    class Pipeline {
+      +_id: string
+      +name: string
+      +nodes: CustomNode[]
+      +edges: Edge[]
+      +userId: string
+    }
+    class PipelineNode {
+      +id: string
+      +type: string
+      +position: x, y
+      +data: NodeData
+    }
+    class NodeData {
+      +name: string
+      +description: string
+      +formData: object
+      +input_variables: InputVariable[]
+    }
+    class PipelineEdge {
+      +id: string
+      +source: string
+      +target: string
+      +sourceHandle: string
+      +targetHandle: string
+    }
+    class ReactFlowStore {
+      <<Zustand store>>
+      +nodes: Node[]
+      +edges: Edge[]
+      +pipelineId: string
+      +isDirty: boolean
+      +saveReactFlow()
+    }
+  }
+  namespace graph {
+    class Collection {
+      +_id: string
+      +title: string
+    }
+    class UploadedFile {
+      +_id: string
+      +filename: string
+      +mimetype: string
+      +url: string
+      +size: number
+    }
+    class CollectionFile {
+      +fileId: string
+      +collectionId: string
+    }
+    class Neo4jConfig {
+      +name: string
+      +uri: string
+      +username: string
+    }
+    class PineconeConfig {
+      +name: string
+      +indexName: string
+      +chunkSize: number
+      +chunkOverlap: number
+      +embeddingModel: string
+    }
+    class UserPreference {
+      +modelName: string
+      +embeddingModel: string
+    }
+  }
+  namespace cms {
+    class CMSPage {
+      +_id: string
+      +title: string
+      +slug: string
+      +content: string
+      +isPublished: boolean
+    }
+    class NavItem {
+      +_id: string
+      +name: string
+      +href: string
+      +order: number
+      +isVisible: boolean
+    }
+    class SubMenuItem {
+      +name: string
+      +href: string
+    }
+  }
+  namespace avatars {
+    class StreamingAvatarProvider {
+      <<context provider>>
+      +sessionState: StreamingAvatarSessionState
+      +stream: MediaStream
+      +messages: Message[]
+      +isVoiceChatActive: boolean
+    }
+    class StreamingAvatarSessionState {
+      <<enumeration>>
+      inactive
+      connecting
+      connected
+    }
+  }
+  Pipeline "1" *-- "*" PipelineNode
+  Pipeline "1" *-- "*" PipelineEdge
+  PipelineNode *-- NodeData
+  ReactFlowStore ..> Pipeline : edits
+  Collection "1" *-- "*" CollectionFile
+  CollectionFile --> UploadedFile
+  NavItem "1" *-- "*" SubMenuItem
+  StreamingAvatarProvider --> StreamingAvatarSessionState`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Log In with Email and Password", desc: "The login form authenticates against Firebase, then hands the ID token to AuthProvider, which validates it, stores it in a cookie and starts the 50-minute refresh timer.",
+code: `sequenceDiagram
+  autonumber
+  actor U as User
+  participant LF as LoginForm
+  participant FB as Firebase Auth
+  participant AP as AuthProvider
+  participant JWT as getTokenInfo
+  participant CK as Cookie 'token'
+  participant R as Next Router
+  U->>LF: Enter email + password, submit
+  LF->>FB: signInWithEmailAndPassword(email, password)
+  alt credentials valid
+    FB-->>LF: UserCredential
+    LF->>FB: user.getIdToken()
+    FB-->>LF: ID token (JWT)
+    LF->>AP: signIn(idToken, "/chat")
+    AP->>JWT: decode(idToken)
+    JWT-->>AP: DecodedJwtTokenType
+    AP->>CK: setCookie(token, maxAge 7 days)
+    AP->>AP: authState = authenticated, setupRefreshTimer(50 min)
+    AP-->>U: Toast "Signed in successfully"
+    AP->>R: push("/chat")
+    R->>R: middleware allows /chat, (core) layout renders
+  else Firebase error
+    FB-->>LF: auth error
+    LF-->>U: Error message via useAuthErrorHandler
+  end`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Sign Up", desc: "Account creation happens on the backend, which returns a Firebase custom token. The client exchanges it for an ID token and signs in.",
+code: `sequenceDiagram
+  autonumber
+  actor U as Visitor
+  participant SF as SignupForm
+  participant AC as Apollo Client
+  participant API as QuizRx API
+  participant FB as Firebase Auth
+  participant AP as AuthProvider
+  U->>SF: Fill name, email, password, WhatsApp (optional), exam preparation
+  SF->>SF: Validate with zod schema
+  SF->>AC: createUserWithEmailAndPassword(createUserInput)
+  AC->>API: mutation CreateUserWithEmailAndPassword
+  API-->>AC: Firebase custom token
+  AC-->>SF: onCompleted(res)
+  SF-->>U: Toast "Account created successfully"
+  SF->>FB: signInWithCustomToken(customToken)
+  alt sign-in succeeds
+    FB-->>SF: UserCredential
+    SF->>FB: getIdToken()
+    FB-->>SF: ID token
+    SF->>AP: signIn(idToken, "/chat")
+    AP-->>U: Redirect to /chat
+  else sign-in fails
+    SF-->>U: Toast "Account created - please sign in manually"
+  end`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Authenticated GraphQL Request with Silent Token Refresh", desc: "Every GraphQL operation passes through errorLink, authLink and httpLink. If the backend reports an expired or invalid token, errorLink refreshes the Firebase ID token and retries the operation once.",
+code: `sequenceDiagram
+  autonumber
+  participant C as Component (useQuery / useMutation)
+  participant EL as errorLink
+  participant AL as authLink
+  participant HL as httpLink
+  participant API as QuizRx API
+  participant AP as AuthProvider
+  participant FB as Firebase Auth
+  C->>EL: execute operation
+  EL->>AL: forward(operation)
+  AL->>AL: Authorization = Bearer (tokenRef or cookie)
+  AL->>HL: forward(operation)
+  HL->>API: POST /graphql
+  API-->>HL: response
+  alt success
+    HL-->>C: data
+  else GraphQL error "token expired / unauthorized / invalid token" and authRetryAttempt = 0
+    HL-->>EL: graphQLErrors
+    EL->>AP: refreshToken()
+    AP->>FB: getIdToken(currentUser, forceRefresh = true)
+    FB-->>AP: new ID token
+    AP->>AP: update cookie + auth state
+    AP-->>EL: new token
+    EL->>EL: setContext(Authorization = new token, authRetryAttempt = 1)
+    EL->>AL: forward(operation) - single retry
+    AL->>HL: forward(operation)
+    HL->>API: POST /graphql
+    API-->>C: data or final error
+  end`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Tutor Mode - Ask a Question", desc: "Tutor is conversational. Prior turns are sent as history so follow-up questions keep context. Tutor never sends a topic.",
+code: `sequenceDiagram
+  autonumber
+  actor L as Learner
+  participant TV as TutorView
+  participant ST as ExtractionQuizStore
+  participant LA as useLearningAction
+  participant API as QuizRx API
+  L->>TV: Type a question or click a starter prompt
+  TV->>ST: appendUserPrompt(text)
+  TV->>ST: setPending("tutor", true)
+  TV->>LA: run(message, experience "tutor", topicId null, sessionId, isFirstTurn, history)
+  LA->>API: mutation LearningAction(input)
+  alt network or GraphQL failure
+    LA-->>TV: NETWORK_FALLBACK (friendly_error)
+  else
+    API-->>LA: LearningActionResponse
+    LA-->>TV: response
+  end
+  alt reply text present and not friendly_error
+    TV->>ST: appendAssistant(reply)
+  else
+    TV->>ST: appendSystem(TUTOR_ERROR, "tutor")
+  end
+  TV->>ST: setPending("tutor", false)
+  ST-->>TV: re-render thread, auto-scroll to newest`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Practice Studio - Short-Answer Question and Graded Review", desc: "The learner picks a topic; the backend serves an unseen question; the typed answer is graded semantically and returned as a question_review.",
+code: `sequenceDiagram
+  autonumber
+  actor L as Learner
+  participant PV as PracticeStudioView
+  participant ST as ExtractionQuizStore
+  participant LA as useLearningAction
+  participant API as QuizRx API
+  participant QC as ExtractionQuestionCard
+  L->>PV: Choose topic, click "Start practice" or "Next question"
+  PV->>ST: setPending("practice_studio", true)
+  PV->>LA: run(action start_question or next_question, experience practice_studio, topicId = chainId, seenQuestionIds), retryOnError
+  LA->>API: mutation LearningAction
+  API-->>LA: response
+  opt responseType = friendly_error
+    LA->>LA: wait 800 ms
+    LA->>API: retry once
+    API-->>LA: response
+  end
+  alt responseType = question
+    PV->>ST: appendAttempt(chainId, question data, "practice_studio")
+    ST-->>QC: render short-answer card
+  else other
+    PV-->>L: show error text
+  end
+  PV->>ST: setPending("practice_studio", false)
+  L->>QC: Type answer, submit
+  QC->>ST: recordFreeText(attemptId, text)
+  QC->>LA: run(action submit_answer, learnerAnswer, currentQuestionId)
+  LA->>API: mutation LearningAction
+  API-->>LA: question_review (evaluation, feedback, ideal_answer)
+  QC->>ST: recordReview(attemptId, review)
+  QC-->>L: Review panel - correct / partial / incorrect + ideal answer`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "QuizRx Reasoning - Answer a Curated MCQ and Report", desc: "Reasoning walks a fixed sequence of 30 curated questions. Selecting an option records the answer and silently sends answer analytics; the learner can also report a question.",
+code: `sequenceDiagram
+  autonumber
+  actor L as Learner
+  participant RV as ReasoningView
+  participant ST as ExtractionQuizStore
+  participant LA as useLearningAction
+  participant QC as ExtractionQuestionCard
+  participant EQ as useExtractionQuiz
+  participant API as QuizRx API
+  L->>RV: Start or Continue
+  RV->>LA: run(action start_question or next_question, experience reasoning, topicId null, currentQuestionId, seenQuestionIds), retryOnError
+  LA->>API: mutation LearningAction
+  API-->>LA: response
+  alt responseType = question
+    alt question already in thread
+      RV->>RV: setViewIndex(existing)
+    else new question
+      RV->>ST: appendAttempt(topic_id, data, "reasoning")
+    end
+  else clarification "completed"
+    RV-->>L: Finished screen (all 30 done)
+  else
+    RV-->>L: Error message
+  end
+  L->>QC: Select an option
+  QC->>ST: recordAnswer(attemptId, index)
+  QC->>EQ: submitFeedback(isCorrect, trap ids, selected option, silent)
+  EQ->>API: mutation SubmitQuestionFeedback
+  API-->>EQ: QuestionFeedbackResult
+  EQ->>ST: markFeedbackSubmitted(attemptId)
+  QC-->>L: Correct / incorrect + structured explanation sections
+  opt Report this question
+    L->>QC: Choose reason + optional comment
+    QC->>EQ: submitFeedback(reportReason, freeText, silent)
+    EQ->>API: mutation SubmitQuestionFeedback
+  end`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Session Management (Chat History Sidebar)", desc: "Sessions are kept on the device. Starting a new session archives the current one; reopening an archived session swaps it back in.",
+code: `sequenceDiagram
+  autonumber
+  actor L as Learner
+  participant SB as ChatHistorySidebar
+  participant ST as ExtractionQuizStore
+  participant AR as ArchivedSessionsStore
+  participant LS as localStorage
+  alt New session
+    L->>SB: Click "New session"
+    opt current session has entries
+      SB->>AR: archive(sessionId, title, chainId, modeEntries, experience)
+      AR->>LS: persist (max 50 sessions)
+    end
+    SB->>ST: resetSession() - new sessionId, empty threads
+    ST->>LS: persist
+  else Reopen archived session
+    L->>SB: Click archived session
+    opt current session has entries
+      SB->>AR: archive(current snapshot)
+    end
+    SB->>AR: remove(archived.sessionId)
+    SB->>ST: loadSession(archived payload)
+    ST->>LS: persist
+  else Delete archived session
+    L->>SB: Click delete
+    SB->>AR: remove(sessionId)
+  end`},
+
+// ---------------------------------------------------------------------------
+{ section: "3. Sequence Diagrams", title: "Admin Panel", desc: "The admin layout gates access client-side, then each tab loads its own paginated GraphQL query.",
+code: `sequenceDiagram
+  autonumber
+  actor A as Admin
+  participant ADL as AdminLayout
+  participant AP as AuthProvider
+  participant IA as useIsAdmin
+  participant PG as AdminPage
+  participant API as QuizRx API
+  A->>ADL: Open /admin
+  ADL->>AP: useAuth()
+  ADL->>IA: useIsAdmin() - email in ADMIN_EMAILS?
+  alt not authenticated
+    ADL-->>A: router.replace("/")
+  else authenticated but not admin
+    ADL-->>A: router.replace("/chat")
+  else admin
+    ADL->>PG: render tabs (Users default)
+    PG->>API: query AdminGetAllUsers(pagination)
+    API-->>PG: PaginatedResponse of AdminUser
+    A->>PG: Open "Chats" tab
+    PG->>API: query AdminGetAllThreads(pagination)
+    A->>PG: Select a thread
+    PG->>API: query AdminGetThreadMessages(threadId, pagination)
+    A->>PG: Open "Feedback" tab
+    PG->>API: query AdminGetAllFeedback(pagination)
+    opt getAllFeedback not available
+      PG->>API: query AdminGetMyFeedbackFallback
+    end
+  end`},
+
+// ---------------------------------------------------------------------------
+{ section: "4. State Diagrams", title: "Authentication State (AuthProvider)", desc: "Lifecycle of the client-side auth state, including restore from cookie, periodic refresh and sign-out.",
+code: `stateDiagram-v2
+  [*] --> Loading : app mounts
+  Loading --> Authenticated : cookie token decodes
+  Loading --> Refreshing : cookie token invalid
+  Loading --> Unauthenticated : no cookie
+  Refreshing --> Authenticated : getIdToken(force) succeeds
+  Refreshing --> Unauthenticated : refresh fails, toast + /auth/login
+  Unauthenticated --> Authenticated : signIn(idToken) or onAuthStateChanged(user)
+  Authenticated --> Authenticated : every 50 min refreshToken()
+  Authenticated --> Authenticated : Apollo errorLink refresh on expired token
+  Authenticated --> Unauthenticated : signOut() or Firebase user becomes null
+  Unauthenticated --> [*]
+  note right of Authenticated
+    cookie 'token' set (7 days)
+    (core) layouts render
+  end note
+  note right of Unauthenticated
+    cookie deleted
+    (core) layout redirects to /
+  end note`},
+
+// ---------------------------------------------------------------------------
+{ section: "4. State Diagrams", title: "Learning Mode Switching", desc: "The ModeSwitcher changes ExtractionQuizStore.experience. All three views stay mounted, so drafts, open questions and scroll positions survive switching. Every visit starts in Tutor.",
+code: `stateDiagram-v2
+  direction LR
+  [*] --> Tutor
+  Tutor --> PracticeStudio : select Practice Studio
+  Tutor --> Reasoning : select QuizRx Reasoning
+  PracticeStudio --> Tutor : select Tutor
+  PracticeStudio --> Reasoning : select QuizRx Reasoning
+  Reasoning --> Tutor : select Tutor
+  Reasoning --> PracticeStudio : select Practice Studio
+  state Tutor {
+    [*] --> TutorEmpty
+    TutorEmpty --> Conversing : send message
+    Conversing --> Conversing : follow-up with history
+  }
+  state PracticeStudio {
+    [*] --> ChooseTopic
+    ChooseTopic --> Practising : Start practice
+    Practising --> Practising : Next question
+  }
+  state Reasoning {
+    [*] --> Intro
+    Intro --> Working : Start or Continue
+    Working --> Answered : answer question N
+    Answered --> Working : next question
+    Answered --> Finished : N = 30
+    Finished --> Intro : resetReasoning()
+  }`},
+
+// ---------------------------------------------------------------------------
+{ section: "4. State Diagrams", title: "Question Attempt Lifecycle", desc: "States an ExtractionAttempt goes through. Reasoning uses multiple choice; Practice Studio uses short answers graded by the backend.",
+code: `stateDiagram-v2
+  [*] --> Requested : start_question / next_question
+  Requested --> Failed : friendly_error after one retry
+  Requested --> Shown : responseType question, appendAttempt
+  Failed --> Requested : learner retries
+  state format <<choice>>
+  Shown --> format
+  format --> AwaitingChoice : format mcq (Reasoning)
+  format --> AwaitingAnswer : format short_answer (Practice Studio)
+  AwaitingChoice --> Answered : recordAnswer + silent analytics feedback
+  Answered --> Explained : explanation sections displayed
+  AwaitingAnswer --> Grading : recordFreeText + submit_answer
+  Grading --> Reviewed : question_review, recordReview
+  Explained --> Reported : report question (optional)
+  Reviewed --> Reported : report question (optional)
+  Explained --> [*] : next question
+  Reviewed --> [*] : next question
+  Reported --> [*]`},
+
+// ---------------------------------------------------------------------------
+{ section: "5. Deployment", title: "Deployment Diagram", desc: "Production builds run on Google Cloud Build: NEXT_* secrets are pulled from Secret Manager into .env, a multi-stage Docker image is built and pushed, and the service is deployed to Cloud Run.",
+code: `flowchart LR
+  DEV(["Developer<br/>git push"])
+  subgraph GCP["Google Cloud project"]
+    direction TB
+    CB["Cloud Build<br/>cloudbuild.yaml"]
+    SM[("Secret Manager<br/>NEXT_* secrets")]
+    GCR[("Container Registry<br/>gcr.io/PROJECT/quizrx-platform-frontend:COMMIT_SHA")]
+    subgraph CR["Cloud Run service"]
+      C["Container: node:18-alpine<br/>user nextjs, port 8080<br/>pnpm next start"]
+    end
+  end
+  subgraph IMG["Dockerfile - multi-stage"]
+    direction TB
+    S1["dependencies<br/>pnpm install"] --> S2["builder<br/>pnpm build"] --> S3["runner<br/>.next, node_modules, public"]
+  end
+  BR(["User browser"])
+  FB["Firebase Auth"]
+  BE["QuizRx Backend API<br/>GraphQL"]
+  DEV --> CB
+  CB -- "1. fetch secrets into .env" --> SM
+  CB -- "2. docker build" --> IMG
+  IMG -- "3. docker push" --> GCR
+  CB -- "4. gcloud run deploy + env vars" --> CR
+  GCR --> C
+  BR -- "HTTPS" --> C
+  BR -- "auth" --> FB
+  BR -- "GraphQL" --> BE`},
+];
+
+// ---------------------------------------------------------------------------
+const PAGE_W = 1047, PAGE_H = 718; // 277mm x 190mm at 96 dpi
+const HEAD_H = 70;
+
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+
+function buildCover(root) {
+  const p = el("div", "page cover");
+  p.innerHTML = `
+    <h1>QuizRx Frontend</h1>
+    <div class="sub">UML Documentation of the Whole Application</div>
+    <table>
+      <tr><td>Repository</td><td>quizrx-frontend</td></tr>
+      <tr><td>Stack</td><td>Next.js 15 (App Router), React 19, TypeScript, Apollo Client (GraphQL),<br/>Zustand, Firebase Auth, Tailwind CSS / Radix UI</td></tr>
+      <tr><td>Hosting</td><td>Docker image on Google Cloud Run, built by Cloud Build</td></tr>
+      <tr><td>Diagrams</td><td>${DIAGRAMS.length} (architecture, class, sequence, state, deployment)</td></tr>
+      <tr><td>Generated</td><td>${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</td></tr>
+    </table>`;
+  root.appendChild(p);
+
+  const t = el("div", "page toc");
+  let lastSec = "";
+  const items = DIAGRAMS.map((d, i) => {
+    const sec = d.section !== lastSec ? `<div class="toc-sec">${d.section}</div>` : "";
+    lastSec = d.section;
+    return `${sec}<div class="toc-item">${i + 1}. ${d.title} <span class="sec">- page ${i + 3}</span></div>`;
+  }).join("");
+  t.innerHTML = `<h2>Contents</h2><div class="toc-list">${items}</div>
+    <ul class="notes">
+      <li>Notation: diagrams are written in Mermaid. Use case, component and deployment views use flowchart syntax with UML conventions (stadium shapes = actors / use cases, dashed arrows = include / dependency).</li>
+      <li>Scope: everything reachable from routes allowed by <b>src/middleware.ts</b> is shown in detail. Modules that exist in the code but are not routed (concepts, graph, avatars, cms, subscription, legacy chat) are summarised separately.</li>
+      <li>Server-side behaviour (backend API, Firebase) is shown only as seen from the frontend.</li>
+    </ul>`;
+  root.appendChild(t);
+}
+
+function fitSvg(svg, maxW, maxH) {
+  const vb = svg.viewBox && svg.viewBox.baseVal;
+  if (!vb || !vb.width) return;
+  const scale = Math.min(maxW / vb.width, maxH / vb.height, 1.8);
+  svg.removeAttribute("style");
+  svg.setAttribute("width", Math.floor(vb.width * scale));
+  svg.setAttribute("height", Math.floor(vb.height * scale));
+}
+
+async function main() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    securityLevel: "loose",
+    fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif",
+    themeVariables: {
+      primaryColor: "#eaf0ff",
+      primaryBorderColor: "#2f5bea",
+      primaryTextColor: "#1f2430",
+      lineColor: "#4a5263",
+      secondaryColor: "#fff4e0",
+      tertiaryColor: "#f6f8fc",
+      fontSize: "14px",
+    },
+    flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: false },
+    sequence: { useMaxWidth: false, mirrorActors: false, showSequenceNumbers: true },
+    class: { useMaxWidth: false },
+    state: { useMaxWidth: false },
+  });
+
+  const root = document.getElementById("root");
+  buildCover(root);
+
+  for (let i = 0; i < DIAGRAMS.length; i++) {
+    const d = DIAGRAMS[i];
+    const page = el("div", "page");
+    const head = el("div", "page-head");
+    head.innerHTML = `<div class="section">${d.section}</div><h2>${d.title}</h2><p>${d.desc}</p>`;
+    const box = el("div", "diagram");
+    page.appendChild(head);
+    page.appendChild(box);
+    page.appendChild(el("div", "footer", `QuizRx Frontend UML - page ${i + 3}`));
+    root.appendChild(page);
+    try {
+      const { svg } = await mermaid.render(`d${i}`, d.code);
+      box.innerHTML = svg;
+      const headH = head.getBoundingClientRect().height + 16;
+      fitSvg(box.querySelector("svg"), PAGE_W - 8, PAGE_H - headH - 12);
+    } catch (err) {
+      box.innerHTML = `<pre style="color:#b00020;white-space:pre-wrap">Diagram error: ${String(err && err.message || err)}</pre>`;
+      console.error(`Diagram ${i} (${d.title}) failed`, err);
+    }
+  }
+  document.title = "QuizRx Frontend - UML Documentation";
+  document.body.setAttribute("data-rendered", "true");
+}
+
+main();
+</script>
+</body>
+</html>
