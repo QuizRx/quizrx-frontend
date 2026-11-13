@@ -12,7 +12,11 @@ import { useAuth } from "@/core/providers/auth";
  *
  * To add more admins for now, edit this array (case-insensitive match).
  */
-const ADMIN_EMAILS: ReadonlyArray<string> = ["admin@quizrx.ai"];
+const ADMIN_EMAILS: ReadonlyArray<string> = [
+  "test@gmail.com",
+  "nesrienhassan83@gmail.com",
+  "admin@quizrx.ai",
+];
 
 const ADMIN_EMAIL_SET = new Set(ADMIN_EMAILS.map((e) => e.toLowerCase()));
 
