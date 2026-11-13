@@ -37,7 +37,7 @@ const SubscriptionPlanLayout = () => {
       </motion.header>
 
       <main className="w-full max-w-4xl border border-gray-200 rounded-lg bg-card mb-8">
-        <div className="w-full space-y-6 py-8 px-16 md:py-10 md:px-20">
+        <div className="w-full space-y-6 py-8 px-4 sm:px-8 md:py-10 md:px-20">
           <motion.div
             variants={staggerUpAnimation}
             className="text-center space-y-2"
@@ -56,7 +56,7 @@ const SubscriptionPlanLayout = () => {
             {/* First Card */}
             <Card className="relative bg-blue-50 flex flex-col h-full">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-xl font-semibold">
                     3 - Day Free Trial
                   </CardTitle>
@@ -127,7 +127,7 @@ const SubscriptionPlanLayout = () => {
             {/* Second Card */}
             <Card className="relative flex flex-col h-full">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-xl font-semibold">
                     EBEEDM Full Access
                   </CardTitle>

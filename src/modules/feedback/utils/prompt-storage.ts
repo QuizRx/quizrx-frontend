@@ -8,16 +8,13 @@
 
 const STORAGE_KEY = "quizrx.feedback.prompt-state.v1";
 
-// How long to wait between automatic prompts after one has been shown (and
-// neither submitted nor explicitly snoozed). Default: 4 hours.
-export const FEEDBACK_PROMPT_INTERVAL_MS = 4 * 60 * 60 * 1000;
+export const FEEDBACK_PROMPT_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
-// Longer cooldown when the user explicitly clicks "Maybe later". Default: 24h.
 export const FEEDBACK_PROMPT_SNOOZE_MS = 24 * 60 * 60 * 1000;
 
-// Initial grace period after the user signs up / first opens the dashboard
-// before we ever ask for feedback. Default: 30 minutes.
-export const FEEDBACK_PROMPT_INITIAL_DELAY_MS = 30 * 60 * 1000;
+// Beta: surface the prompt after a few minutes of in-product activity so we
+// can collect feedback while the session is still fresh.
+export const FEEDBACK_PROMPT_INITIAL_DELAY_MS = 5 * 60 * 1000;
 
 type FeedbackPromptState = {
   firstSeenAt?: number;

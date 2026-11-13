@@ -129,7 +129,7 @@ export function PricingSection({
               </div>
 
               {/* Card interior blanco con contenido */}
-              <div className="bg-white rounded-3xl shadow-xl p-8 lg:p-10 flex flex-col flex-grow -mt-6 relative z-10">
+              <div className="bg-white rounded-3xl shadow-xl p-5 sm:p-8 lg:p-10 flex flex-col flex-grow -mt-6 relative z-10">
                 <div className="mb-8">
                   <div className="flex items-baseline gap-2 mb-6">
                     <span className="text-3xl sm:text-4xl text-gray-900">

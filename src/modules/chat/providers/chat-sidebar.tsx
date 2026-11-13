@@ -24,14 +24,10 @@ export function ChatSidebarProvider({
   const isLgScreen = useIsLgScreen();
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
 
+  // History starts collapsed on every screen size; the header's History
+  // button reopens it.
   useEffect(() => {
-    // In xl screens (1280px+): open sidebar by default on /dashboard route
-    // In smaller screens: keep sidebar closed by default
-    if (!isLgScreen) {
-      setIsChatSidebarOpen(false);
-    } else {
-      setIsChatSidebarOpen(pathname === "/dashboard");
-    }
+    setIsChatSidebarOpen(false);
   }, [pathname, isLgScreen]);
 
   const toggleChatSidebar = () => setIsChatSidebarOpen((prev) => !prev);

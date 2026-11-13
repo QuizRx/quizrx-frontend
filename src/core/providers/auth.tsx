@@ -39,6 +39,25 @@ const initialState: Omit<AuthProps, "signIn" | "signOut" | "refreshToken"> = {
 
 const AuthContext = createContext<AuthProps | null>(null);
 
+// AuthProvider sits outside ApolloProvider, so this uses fetch directly.
+// `keepalive` lets the request finish while the page navigates away.
+const recordLogout = async (token: string | undefined) => {
+  if (!token || !process.env.NEXT_PUBLIC_API_URL) return;
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/graphql`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query: "mutation RecordLogout { recordLogout }" }),
+    });
+  } catch {
+    // Logging must never block sign-out.
+  }
+};
+
 // Token refresh interval (50 minutes)
 const TOKEN_REFRESH_INTERVAL = 50 * 60 * 1000;
 
@@ -154,6 +173,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     deleteCookie("token", { path: "/" });
 
+    // Ramy Oct-12 §6: clear learner history caches so account B in the same
+    // browser never sees account A's Practice Studio / Tutor / Reasoning UI.
+    // Keys match zustand persist names in extraction-quiz stores.
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("extraction-quiz-current");
+        window.localStorage.removeItem("extraction-quiz-archive");
+      }
+    } catch {
+      // ignore quota / private-mode errors
+    }
+
     currentTokenRef.current = null;
 
     setAuthState({
@@ -227,6 +258,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // Sign out method
   const signOut = async (redirectPath: string = "/"): Promise<void> => {
     try {
+      void recordLogout(getCookie("token") as string | undefined);
+
       // Start redirect (but wait a bit before completing sign-out)
       router.push(redirectPath);
 

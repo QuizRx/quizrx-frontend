@@ -2,34 +2,20 @@
 
 import Navbar from "@/core/components/shared/nav/nav-bar";
 import Footer from "@/modules/landing/layouts/common/footer";
-import { useAuth } from "@/core/providers/auth";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 export default function HomeLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  // Show nothing while loading or if authenticated
-  if (isLoading || isAuthenticated) {
-    return null;
-  }
-
+  // Note: we deliberately do NOT redirect authenticated users at the layout
+  // level. Logged-in users need to be able to visit /about-us, /feedback,
+  // /privacy-policy, etc. Only the root "/" page itself redirects
+  // authenticated users to /chat.
   return (
-    <div className="relative flex flex-col">
+    <div className="relative flex min-h-screen flex-col bg-[var(--background)]">
       <Navbar />
-      <div>{children}</div>
+      <main className="flex-1">{children}</main>
       <Footer />
     </div>
   );

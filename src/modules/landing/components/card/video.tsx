@@ -11,7 +11,7 @@ const VideoCard = ({
   return (
     <Card>
       <CardContent
-        className="flex flex-row gap-4 p-6 cursor-pointer min-w-72 w-full hover:translate-y-1 transition-all ease-linear duration-200"
+        className="flex flex-row gap-4 p-6 cursor-pointer min-w-0 w-full sm:min-w-72 hover:translate-y-1 transition-all ease-linear duration-200"
         onClick={() => handleCardClick(card.url)}
       >
         <card.icon className="w-8 h-8 mb-2 text-primary" />

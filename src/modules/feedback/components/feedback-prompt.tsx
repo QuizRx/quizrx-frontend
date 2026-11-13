@@ -14,30 +14,29 @@ import {
   markFeedbackPromptSnoozed,
   shouldShowFeedbackPrompt,
 } from "../utils/prompt-storage";
+import { useAnsweredCount } from "@/modules/extraction-quiz";
 
-// How often we re-check whether the prompt should appear while the user is
-// active. Five minutes is plenty fine-grained without being noisy.
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
+// Re-check cadence while the user is active.
+const POLL_INTERVAL_MS = 60 * 1000;
 
-const HIDE_ON_ROUTES = [
-  "/auth",
-  "/login",
-  "/signup",
-  "/dashboard/feedback", // do not nag while the user is already giving feedback
-];
+const HIDE_ON_ROUTES = ["/auth", "/login", "/signup"];
 
 export function FeedbackPrompt() {
   const { isAuthenticated, isLoading } = useAuth();
   const pathname = usePathname();
+  const answeredCount = useAnsweredCount();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   const isOnHiddenRoute = HIDE_ON_ROUTES.some((prefix) =>
     pathname?.startsWith(prefix)
   );
+  const isOnChat = pathname?.startsWith("/chat") ?? false;
+  const hasEngaged = answeredCount > 0;
 
   useEffect(() => {
     if (!isAuthenticated || isLoading || isOnHiddenRoute) return;
+    if (!isOnChat || !hasEngaged) return;
 
     ensureFeedbackPromptInitialized();
 
@@ -48,7 +47,6 @@ export function FeedbackPrompt() {
       }
     };
 
-    // Check shortly after mount and then on a slow interval.
     const initial = window.setTimeout(evaluate, 1500);
     const interval = window.setInterval(evaluate, POLL_INTERVAL_MS);
 
@@ -56,15 +54,14 @@ export function FeedbackPrompt() {
       window.clearTimeout(initial);
       window.clearInterval(interval);
     };
-  }, [isAuthenticated, isLoading, isOnHiddenRoute]);
+  }, [isAuthenticated, isLoading, isOnHiddenRoute, isOnChat, hasEngaged]);
 
-  // Hide the prompt entirely on routes where it doesn't make sense.
   useEffect(() => {
-    if (isOnHiddenRoute) {
+    if (isOnHiddenRoute || !isOnChat) {
       setOpen(false);
       setExpanded(false);
     }
-  }, [isOnHiddenRoute]);
+  }, [isOnHiddenRoute, isOnChat]);
 
   const handleDismiss = () => {
     markFeedbackPromptSnoozed();
@@ -77,7 +74,7 @@ export function FeedbackPrompt() {
     setExpanded(false);
   };
 
-  if (!isAuthenticated || isOnHiddenRoute) return null;
+  if (!isAuthenticated || isOnHiddenRoute || !isOnChat) return null;
 
   return (
     <AnimatePresence>
